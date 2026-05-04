@@ -31,11 +31,9 @@ gs_modificat(a): Factorització QR d'una matriu a mitjançant el mètode de Gram
 house(x, tol): Calcula el vector de Householder u i el coeficient beta per a un vector x
 qr_house(a): Factorització QR d'una matriu a mitjançant el mètode de Householder
 """
-from abc import abstractmethod
 from typing import override, Tuple
 
 import numpy as np
-from numpy.ma.core import max_val
 
 
 # Solució de sistemes triangulars

@@ -1,0 +1,23 @@
+@startuml
+'https://plantuml.com/class-diagram
+
+
+abstract class Factoritzacio
+abstract class MetodeDirecte extends Factoritzacio
+abstract class FactoritzacioLU extends MetodeDirecte
+abstract class FactoritzacioLUCompacta extends FactoritzacioLU
+class FactoritzacioLUGaussiana extends FactoritzacioLU
+
+class FactoritzacioLUParcial extends FactoritzacioLUGaussiana
+class FactoritzacioLUParcialEsglaonat extends FactoritzacioLUGaussiana
+class Doolittle extends FactoritzacioLUCompacta
+class Crout extends FactoritzacioLUCompacta
+
+class FactoritzacioLDLT extends MetodeDirecte
+class Cholesky extends MetodeDirecte
+
+class FactoritzacioQR extends Factoritzacio
+class Householder extends FactoritzacioQR
+class GramSchmidtClassic extends FactoritzacioQR
+class GramSchmidtModificat extends FactoritzacioQR
+@enduml
