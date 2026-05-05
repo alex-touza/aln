@@ -29,7 +29,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, final, override
 
-from utils import invertir_diagonal
+from utils import invertir_diagonal, sol_sti
 
 
 class MetodeIteratiu(ABC):
@@ -40,9 +40,12 @@ class MetodeIteratiu(ABC):
         self.nitm = nitm
 
     @abstractmethod
-    def aproximar(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, r: np.ndarray) -> np.ndarray:
+    def aproximar(self, A: np.ndarray, r: np.ndarray) -> np.ndarray:
         """
         Funció que han d'implementar els mètodes iteratius.
+
+        Retorna el valor y tal que, si l'aproximació actual és x,
+        l'aproximació següent és x + y.
         """
         pass
         
@@ -55,46 +58,58 @@ class MetodeIteratiu(ABC):
                 nit = -1
                 break
 
-            x = self.aproximar(A, b, x, r)
-            r = b - A @ x
+            y = self.aproximar(A, r)
+            x += y
+            r -= A @ y
 
         return x, np.linalg.norm(r), nit
 
 class MetodeIteratiuDescomposicio(MetodeIteratiu, ABC):
     """
     Mètodes iteratius basats en descomposicions regulars de la matriu A.
+
+    Si x és l'aproximació actual, la funció `aproximar` ha de calcular
+    la solució y del sistema M y = r de manera que l'aproximació següent
+    sigui x + y, retornant y.
     """
 
     def __init__(self, tol, nitm):
         super().__init__(tol, nitm)
-        self.M_inv: Optional[np.ndarray] = None
-        self.N: Optional[np.ndarray] = None
+        self.M: Optional[np.ndarray] = None
   
     @abstractmethod
     def descompondre(self, A: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Funció que han d'implementar els mètodes iteratius.
         Si M, N són les matrius corresponents a la descomposició
-        regular associada al mètode iteratiu, es retorna una
-        tupla amb M^(-1) i N.
+        regular associada al mètode iteratiu, retorna M.
         """
         pass
 
-    @override
-    def aproximar(self, A, b, x, r):
-        return self.M_inv @ self.N @ x + self.M_inv @ b
+    @abstractmethod
+    def matriu_iteracio(self, A: np.ndarray):
+        pass
 
     @final
     def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
-        self.M_inv, self.N = self.descompondre(A)
+        self.M = self.descompondre(A)
         return super().resoldre(A, b, x)
 
 class Jacobi(MetodeIteratiuDescomposicio):
     @override
     def descompondre(self, A: np.ndarray):
-        M = np.diag(np.diag(A))
-        N = A - M
-        return invertir_diagonal(M), N
+        return np.diag(np.diag(A))
+    
+    @override
+    def matriu_iteracio(self, A):
+        assert self.M is not None
+        N = A - self.M
+        return invertir_diagonal(self.M) @ N
+    
+    @override
+    def aproximar(self, A, r):
+        assert self.M is not None
+        return invertir_diagonal(self.M) @ r
 
 class SobreRelaxacioSuccessiva(MetodeIteratiuDescomposicio):
     def __init__(self, tol: np.float64, nitm: int, omega: np.float64):
@@ -102,9 +117,8 @@ class SobreRelaxacioSuccessiva(MetodeIteratiuDescomposicio):
 
         super().__init__(tol, nitm)
         self.omega = omega
-    
-    @override
-    def descompondre(self, A: np.ndarray):
+
+    def matrius_descomposicio(self, A: np.ndarray):
         D = np.diag(np.diag(A))
         E = - np.tril(A, k=-1)
         F = - np.triu(A, k=1)
@@ -112,7 +126,24 @@ class SobreRelaxacioSuccessiva(MetodeIteratiuDescomposicio):
         M = D / self.omega - E
         N = (1 - self.omega) / self.omega * D + F
 
-        return np.linalg.inv(M), F
+        return M, N
+
+    @override
+    def matriu_iteracio(self, A):
+        M, N = self.matrius_descomposicio(A)
+
+        return np.linalg.inv(M) @ N
+    
+    @override
+    def descompondre(self, A: np.ndarray):
+        return self.matrius_descomposicio(A)[0]
+    
+    @override
+    def aproximar(self, A, r):
+        # Resolem M y = r on M és una matriu triangular inferior
+        y = r.copy()
+        sol_sti(self.M, y)
+        return y
 
     @staticmethod
     def trobar_omega_optima(A: np.ndarray, b: np.ndarray, x: np.ndarray, tol: np.float64, nitm: int):
@@ -153,9 +184,9 @@ class GaussSeidel(SobreRelaxacioSuccessiva):
 
 class Gradient(MetodeIteratiu):
     @override
-    def aproximar(self, A, b, x, r):
-        alpha_k = np.dot(r, r) / np.dor(r, A @ r)
-        return x + alpha_k * r
+    def aproximar(self, A, r):
+        alpha_k = np.dot(r, r) / np.dot(r, A @ r)
+        return alpha_k * r
 
 # Mètodes iteratius
 
@@ -178,7 +209,7 @@ def radi_espectral(A):
     from numpy.linalg import eigvals
     """
     eigvals = numpy.linalg.eigvals(A)
-    return np.max(np.fabs(eigvals))
+    return np.max(np.abs(eigvals))
 
 
 
