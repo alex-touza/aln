@@ -16,7 +16,7 @@ class Crout extends FactoritzacioLUCompacta
 class FactoritzacioLDLT extends MetodeDirecte
 class Cholesky extends MetodeDirecte
 
-class FactoritzacioQR extends Factoritzacio
+abstract class FactoritzacioQR extends Factoritzacio
 class Householder extends FactoritzacioQR
 class GramSchmidtClassic extends FactoritzacioQR
 class GramSchmidtModificat extends FactoritzacioQR
