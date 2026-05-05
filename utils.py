@@ -1,5 +1,14 @@
 import numpy as np
 
+def invertir_diagonal(D: np.ndarray):
+    elements = np.diag(D).copy()
+
+    for i in range(len(elements)):
+        if elements[i] != 0:
+            elements[i] = 1 / elements[i]
+
+    return np.diag(elements)
+
 
 def sol_sti(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=True):
     """

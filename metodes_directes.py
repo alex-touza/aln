@@ -361,6 +361,7 @@ def sol_lu(A, b, l_amb_uns_a_la_diagonal=True):
         b: Vector (matriu n x 1) que ara conté la solució del sistema lineal
           Ax = b.
     """
+    
     n = b.shape[0]
     for i in range(1, n):
         for j in range(i):

@@ -3,17 +3,9 @@ from typing import Generic, override
 
 import numpy as np
 
-from sistemes_triangulars import sol_sti, sol_sts
+from utils import *
 
 
-def invertir_diagonal(D: np.ndarray):
-    elements = np.diag(D)
-
-    for x in elements:
-        if x != 0:
-            x = 1 / x
-
-    return np.diag(elements)
 
 class Factoritzacio(ABC):
     def __init__(self, A: np.ndarray):
@@ -24,6 +16,15 @@ class Factoritzacio(ABC):
 
     @abstractmethod
     def factoritzar(self) -> None: pass
+
+    def partir(self) -> None:
+        """
+        Funció que agafa la matriu self.A modificada per self.factoritzar() i
+        desa en els camps corresponents les matrius de la factorització. Per
+        defecte, no fa res, així que no fa falta implementar-la si l'algorisme
+        de factorització ja desa en variables separades les matrius.
+        """
+        pass
 
     @abstractmethod
     def residu_factoritzacio(self) -> np.floating: pass
@@ -55,6 +56,42 @@ class FactoritzacioLU(MetodeDirecte, ABC):
         self.L: None | np.ndarray = None
         self.U: None | np.ndarray = None
 
+    @override
+    def resoldre(self, b: np.ndarray):
+        self.b = b
+
+        assert self.b is not None
+        assert self.L is not None
+        assert self.U is not None
+        # Resoldre Lz = b, ignorant permutacions de moment
+        z = self.b.copy()
+        sol_sti(self.L, z)
+
+        # Resoldre Ux = z
+        self.x = z
+        assert self.x is not None
+        sol_sts(self.U, self.x)
+
+    @override
+    def residu_solucio(self) -> np.floating:
+        return np.linalg.norm(self.b - self.A_original @ self.x)
+    
+    def partir_l_estr(self):
+        """
+        Obté les matrius L i U suposant que L està continguda en
+        la part estrictament inferior de A.
+        """
+        self.L = np.tril(self.A, k=-1) + np.eye(self.n)
+        self.U = np.triu(self.A)
+
+    def partir_u_estr(self):
+        """
+        Obté les matrius L i U suposant que U està continguda en
+        la part estrictament superior de A.
+        """
+        self.L = np.tril(self.A)
+        self.U = np.triu(self.A, k=1) + np.eye(self.n)
+
 class FactoritzacioLUCompacta(FactoritzacioLU, ABC):
     def residu_factoritzacio(self) -> np.floating:
         assert self.L is not None
@@ -62,11 +99,53 @@ class FactoritzacioLUCompacta(FactoritzacioLU, ABC):
 
         return np.linalg.norm(self.A_original - self.L @ self.U)
 
+class Doolittle(FactoritzacioLUCompacta):
+    def factoritzar(self):         
+        for i in range(1, self.n):
+            self.A[i][0] /= self.A[0][0]
+
+        for k in range(1, self.n):
+            for j in range(k, self.n):
+                s = 0
+                for p in range(k):
+                    s += self.A[k][p] * self.A[p][j]
+
+                self.A[k][j] -= s
+            for i in range(k + 1, self.n):
+                s = 0
+                for p in range(k):
+                    s += self.A[i][p] * self.A[p][k]
+                self.A[i][k] = (self.A[i][k] - s) / self.A[k][k]
+    
+    def partir(self):
+        self.partir_l_estr()
+
+class Crout(FactoritzacioLUCompacta):
+    def factoritzar(self):
+        for j in range(1, self.n):
+            self.A[0][j] /= self.A[0][0]
+
+        for k in range(1, self.n):
+            for i in range(k, self.n):
+                s = 0
+                for p in range(k):
+                    s += self.A[i][p] * self.A[p][k]
+
+                self.A[i][k] -= s
+            for j in range(k + 1, self.n):
+                s = 0
+                for p in range(k):
+                    s += self.A[k][p] * self.A[p][j]
+                self.A[k][j] = (self.A[k][j] - s) / self.A[k][k]
+    
+    def partir(self):
+        self.partir_u_estr()
 
 class FactoritzacioLUGaussiana(FactoritzacioLU):
     def __init__(self, A: np.ndarray):
         super().__init__(A)
         self.p: None | np.ndarray = None
+        self.b_original: None | np.ndarray = None
 
     def pivotar(self, k: int):
         """
@@ -95,41 +174,21 @@ class FactoritzacioLUGaussiana(FactoritzacioLU):
                 for j in range(k + 1, self.n):
                     self.A[i][j] -= self.A[i][k] * self.A[k][j]
 
-        self.L = np.tril(self.A, k=-1) + np.eye(self.n)
-        self.U = np.triu(self.A)
-
-
-    def invertir_permutacio(self) -> np.ndarray:
-        """
-        Obté el vector permutació que desfa les permutacions fetes per self.p.
-        """
-        pp = np.array(list(range(self.n)))
-        for i in range(self.n):
-            pp[i] = np.where(self.p == pp[i])[0][0]
-
-        return pp
+    @override
+    def partir(self):
+        self.partir_l_estr()
 
     def resoldre(self, b: np.ndarray):
-        self.b = b
+        # Desem el terme independent sense permutar per calcular
+        # el residu després
+        self.b_original = b.copy()
+        
+        super().resoldre(b[self.p[:]])
 
-        assert self.b is not None
-        assert self.L is not None
-        assert self.U is not None
-        # Resoldre Lz = b, ignorant permutacions de moment
-        z = self.b.copy()
-        sol_sti(self.L, z)
-
-        # Resoldre Ux = z
-        self.x = z
-        assert self.x is not None
-        sol_sts(self.U, self.x)
-
-        # Ara, tenim en compte les permutacions si cal
-        return self.x if self.p is None else self.x[self.invertir_permutacio()[:]]
-
+    @override
     def residu_solucio(self) -> np.floating:
-        return np.linalg.norm(self.b - self.A_original @ self.x)
-
+        return np.linalg.norm(self.b_original - self.A_original @ self.x)
+    
     @override
     def residu_factoritzacio(self) -> np.floating:
         assert self.L is not None
@@ -180,23 +239,24 @@ class FactoritzacioLDLT(MetodeDirecte):
         assert self.A.shape[1] == n
 
         # A[1:][0] /= A[0][0]
-        for i in range(2, n + 1):
-            self.A[i - 1][0] = self.A[i - 1][0] / self.A[0][0]
-        for k in range(2, n + 1):
-            self.A[k - 1][k - 1] -= np.sum([
-                self.A[k - 1][r - 1] * self.A[k - 1][r - 1] * self.A[r - 1][r - 1]
-                for r in range(1, k)
+        for i in range(1, n):
+            self.A[i][0] /= self.A[0][0]
+        for k in range(1, n):
+            self.A[k][k] -= sum([
+                self.A[k][r] ** 2 * self.A[r][r]
+                for r in range(k)
             ])
 
-            for i in range(k + 1, n + 1):
-                self.A[i - 1][k - 1] -= np.sum([
-                    self.A[i - 1][r - 1] * self.A[r - 1][r - 1] * self.A[k - 1][r - 1]
-                    for r in range(1, k)
+            for i in range(k + 1, n):
+                self.A[i][k] -= sum([
+                    self.A[i][r] * self.A[r][r] * self.A[k][r]
+                    for r in range(k)
                 ])
-                self.A[i - 1][k - 1] /= self.A[k - 1][k - 1]
-
+                self.A[i][k] /= self.A[k][k]
+    @override
+    def partir(self):
         self.D = np.diag(np.diag(self.A))
-        self.L = np.tril(self.A, k=-1) + np.eye(n)
+        self.L = np.tril(self.A, k=-1) + np.eye(self.n)
 
     @override
     def residu_factoritzacio(self) -> np.floating:
@@ -210,12 +270,13 @@ class FactoritzacioLDLT(MetodeDirecte):
         assert self.D is not None
         assert self.L is not None
         assert self.b is not None
+        # Hem de resoldre LDL^T x = b
 
         # Resolem Ly = b
         y = self.b.copy()
         sol_sti(self.L, y)
 
-        # Resolem Lt x = D^(-1) y
+        # Resolem L^T x = D^(-1) y
         self.x = invertir_diagonal(self.D) @ y
         assert self.x is not None
         sol_sts(self.L.T, self.x)
@@ -224,10 +285,39 @@ class FactoritzacioLDLT(MetodeDirecte):
 
 class FactoritzacioCholesky(MetodeDirecte):
     def __init__(self, A: np.ndarray):
+        self.L: None | np.ndarray = None
         super().__init__(A)
 
+    @override
     def factoritzar(self) -> None:
-        pass
+        self.A[0][0] = np.sqrt(self.A[0][0])
+        for i in range(1, self.n):
+            self.A[i][0] /= self.A[0][0]
+        for j in range(1, self.n):
+            self.A[j][j] -= sum([self.A[j][k] ** 2 for k in range(j)])
+            self.A[j][j] = np.sqrt(self.A[j][j])
+            for i in range(j + 1, self.n):
+                self.A[i][j] -= sum([self.A[i][k] * self.A[j][k] for k in range(j)])
+                self.A[i][j] /= self.A[j][j]
+    @override
+    def partir(self):
+        self.L = np.tril(self.A)
+
+    @override
+    def resoldre(self, b):
+        self.b = b
+        # Resol L y = b
+        y = self.b.copy()
+        sol_sti(self.L, y)
+
+        # Resolem L^T x = y
+        self.x = y
+        sol_sts(self.L.T, self.x)
+
+    @override
+    def residu_factoritzacio(self):
+        return np.linalg.norm(self.A_original - self.L @ self.L.T)   
+    
 
 
 class FactoritzacioQR(Factoritzacio, ABC):
@@ -260,6 +350,7 @@ class Householder(FactoritzacioQR):
         v = - norm_x if x[0] > 0 else norm_x
         u = x.copy()
         u[0] -= v
+
 
         if np.abs(v) < self.tol: beta = 0.0
         else: beta = - 1.0 / (v * u[0])

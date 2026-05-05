@@ -1,23 +1,35 @@
 @startuml
 'https://plantuml.com/class-diagram
 
+namespace metodes_directes {
+    abstract class Factoritzacio
+    abstract class MetodeDirecte extends Factoritzacio
+    abstract class FactoritzacioLU extends MetodeDirecte
+    abstract class FactoritzacioLUCompacta extends FactoritzacioLU
+    class FactoritzacioLUGaussiana extends FactoritzacioLU
 
-abstract class Factoritzacio
-abstract class MetodeDirecte extends Factoritzacio
-abstract class FactoritzacioLU extends MetodeDirecte
-abstract class FactoritzacioLUCompacta extends FactoritzacioLU
-class FactoritzacioLUGaussiana extends FactoritzacioLU
+    class FactoritzacioLUParcial extends FactoritzacioLUGaussiana
+    class FactoritzacioLUParcialEsglaonat extends FactoritzacioLUGaussiana
 
-class FactoritzacioLUParcial extends FactoritzacioLUGaussiana
-class FactoritzacioLUParcialEsglaonat extends FactoritzacioLUGaussiana
-class Doolittle extends FactoritzacioLUCompacta
-class Crout extends FactoritzacioLUCompacta
+    class Doolittle extends FactoritzacioLUCompacta
+    class Crout extends FactoritzacioLUCompacta
 
-class FactoritzacioLDLT extends MetodeDirecte
-class Cholesky extends MetodeDirecte
+    class FactoritzacioLDLT extends MetodeDirecte
+    class Cholesky extends MetodeDirecte
 
-abstract class FactoritzacioQR extends Factoritzacio
-class Householder extends FactoritzacioQR
-class GramSchmidtClassic extends FactoritzacioQR
-class GramSchmidtModificat extends FactoritzacioQR
+    abstract class FactoritzacioQR extends Factoritzacio
+    class Householder extends FactoritzacioQR
+    class GramSchmidtClassic extends FactoritzacioQR
+    class GramSchmidtModificat extends FactoritzacioQR
+}
+
+namespace metodes_iteratius {
+    abstract class MetodeIteratiu
+    abstract class MetodeIteratiuDescomposicio extends MetodeIteratiu
+    class Jacobi extends MetodeIteratiuDescomposicio
+    class SobreRelaxacioSuccessiva extends MetodeIteratiuDescomposicio
+    class GaussSeidel extends SobreRelaxacioSuccessiva
+
+    class Gradient extends MetodeIteratiu
+}
 @enduml
