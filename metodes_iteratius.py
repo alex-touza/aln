@@ -123,6 +123,7 @@ class SobreRelaxacioSuccessiva(MetodeIteratiuDescomposicio):
         E = - np.tril(A, k=-1)
         F = - np.triu(A, k=1)
 
+
         M = D / self.omega - E
         N = (1 - self.omega) / self.omega * D + F
 
