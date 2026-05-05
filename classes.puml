@@ -24,12 +24,17 @@ namespace metodes_directes {
 }
 
 namespace metodes_iteratius {
-    abstract class MetodeIteratiu
+    abstract class MetodeIteratiu<T extends EstatMetodeIteratiu>
     abstract class MetodeIteratiuDescomposicio extends MetodeIteratiu
     class Jacobi extends MetodeIteratiuDescomposicio
     class SobreRelaxacioSuccessiva extends MetodeIteratiuDescomposicio
     class GaussSeidel extends SobreRelaxacioSuccessiva
 
     class Gradient extends MetodeIteratiu
+
+    class EstatMetodeIteratiu
+    class EstatMetodeIteratiuDescomposicio extends EstatMetodeIteratiu
+    class EstatMetodeIteratiuGradient extends EstatMetodeIteratiu
+    class EstatMetodeIteratiuGradientConjugat extends EstatMetodeIteratiuGradient
 }
 @enduml

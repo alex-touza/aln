@@ -24,23 +24,65 @@ gradient_conjugat(A, b, x, ε, nitm): Càlcul de la solució del sistema Ax = b.
 matriu n x n no singular, b vector amb n components (matriu n x 1), pel mètode
 del gradient conjugat.
 """
+
 import numpy
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, final, override
+from typing import Optional, Tuple, final, override, Generic, TypeVar
 
 from utils import invertir_diagonal, sol_sti
 
 
-class MetodeIteratiu(ABC):
+class EstatMetodeIteratiu:
+    def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
+        self.A = A
+        self.n = A.shape[0]
+        self.b = b
+        self.x = x
+        self.r = b - A @ x
+        self.k = 0
+
+    def residu(self):
+        return np.linalg.norm(self.r)
+
+class EstatMetodeIteratiuDescomposicio(EstatMetodeIteratiu):
+    def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, M: np.ndarray, M_inv: np.ndarray):
+        super().__init__(A, b, x)
+        self.M = M
+        self.M_inv = M_inv
+        # Fem servir que A = M - N
+        self.N = self.M - self.A
+
+    def matriu_iteracio(self):
+        return self.M_inv @ self.N
+
+
+class EstatMetodeIteratiuGradient(EstatMetodeIteratiu):
+    def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, ):
+        super().__init__(A, b, x)
+        self.alpha: float = 0
+
+
+class EstatMetodeIteratiuGradientConjugat(EstatMetodeIteratiuGradient):
+    def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, ):
+        super().__init__(A, b, x)
+        self.p: np.ndarray = self.r
+        self.beta: float = 0
+
+
+T = TypeVar('T', bound=EstatMetodeIteratiu)
+
+
+class MetodeIteratiu(Generic[T], ABC):
     # Al constructor dels mètodes iteratius, s'especifiquen els
     # paràmetres de la resolució.
-    def __init__(self, tol: np.float64, nitm: int):
+    def __init__(self, tol: float, nitm: int):
         self.tol = tol
         self.nitm = nitm
+        self.estat: Optional[T] = None
 
     @abstractmethod
-    def aproximar(self, A: np.ndarray, r: np.ndarray) -> np.ndarray:
+    def aproximar(self) -> np.ndarray:
         """
         Funció que han d'implementar els mètodes iteratius.
 
@@ -48,146 +90,157 @@ class MetodeIteratiu(ABC):
         l'aproximació següent és x + y.
         """
         pass
-        
-    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
-        nit = 0
-        r = b - A @ x
-        while np.linalg.norm(r) > self.tol * np.linalg.norm(b):
-            nit += 1
-            if nit > self.nitm:
-                nit = -1
+
+    def calcular_residu(self, y: np.ndarray):
+        """
+        Calcula el nou residu a partir del desplaçament de la solució y.
+        :return:
+        """
+        assert self.estat is not None
+        self.estat.r -= self.estat.A @ y
+
+    def executar(self):
+        """
+        Executa el mètode iteratiu suposant que l'estat ja està inicialitzat.
+        :return:
+        """
+        assert self.estat is not None
+        # El residu inicial ja està calculat a la inicialització de l'estat
+        while self.estat.residu() > self.tol * np.linalg.norm(self.estat.b):
+            self.estat.k += 1
+            if self.estat.k > self.nitm:
+                self.estat.k = -1
                 break
 
-            y = self.aproximar(A, r)
-            x += y
-            r -= A @ y
+            y = self.aproximar()
+            self.estat.x += y
+            self.calcular_residu(y)
 
-        return x, np.linalg.norm(r), nit
+    @abstractmethod
+    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray) -> None:
+        """
+        Resoldre el sistema Ax = b amb el mètode iteratiu corresponent.
+        Aquesta funció inicialitza l'estat del mètode iteratiu i crida self.executar().
+        Els resultats estaran en self.estat.
+        :param A: Matriu del sistema
+        :param b: Terme independent del sistema
+        :param x: Aproximació inicial de la solució
+        """
+        pass
 
-class MetodeIteratiuDescomposicio(MetodeIteratiu, ABC):
+
+class MetodeIteratiuDescomposicio(MetodeIteratiu[EstatMetodeIteratiuDescomposicio], ABC):
     """
     Mètodes iteratius basats en descomposicions regulars de la matriu A.
 
     Si x és l'aproximació actual, la funció `aproximar` ha de calcular
     la solució y del sistema M y = r de manera que l'aproximació següent
-    sigui x + y, retornant y.
+    sigui x + y.
     """
 
     def __init__(self, tol, nitm):
         super().__init__(tol, nitm)
-        self.M: Optional[np.ndarray] = None
-  
+
     @abstractmethod
     def descompondre(self, A: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Funció que han d'implementar els mètodes iteratius.
         Si M, N són les matrius corresponents a la descomposició
-        regular associada al mètode iteratiu, retorna M.
+        regular associada al mètode iteratiu, retorna una tupla amb
+        la matriu M i la seva inversa M^(-1).
         """
         pass
 
-    @abstractmethod
-    def matriu_iteracio(self, A: np.ndarray):
-        pass
+    def matriu_iteracio(self):
+        assert self.estat is not None
+        return self.estat.matriu_iteracio()
 
     @final
     def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
-        self.M = self.descompondre(A)
-        return super().resoldre(A, b, x)
+        self.estat = EstatMetodeIteratiuDescomposicio(A, b, x, *self.descompondre(A))
+        self.executar()
+
 
 class Jacobi(MetodeIteratiuDescomposicio):
     @override
     def descompondre(self, A: np.ndarray):
-        return np.diag(np.diag(A))
-    
+        M = np.diag(np.diag(A))
+        return M, invertir_diagonal(M)
+
     @override
-    def matriu_iteracio(self, A):
-        assert self.M is not None
-        N = A - self.M
-        return invertir_diagonal(self.M) @ N
-    
-    @override
-    def aproximar(self, A, r):
-        assert self.M is not None
-        return invertir_diagonal(self.M) @ r
+    def aproximar(self):
+        assert self.estat is not None
+        return self.estat.M_inv @ self.estat.r
+
 
 class SobreRelaxacioSuccessiva(MetodeIteratiuDescomposicio):
-    def __init__(self, tol: np.float64, nitm: int, omega: np.float64):
+    def __init__(self, tol: float, nitm: int, omega: float):
         assert 0 <= omega <= 2
 
         super().__init__(tol, nitm)
         self.omega = omega
 
-    def matrius_descomposicio(self, A: np.ndarray):
-        D = np.diag(np.diag(A))
-        E = - np.tril(A, k=-1)
-        F = - np.triu(A, k=1)
-
-
-        M = D / self.omega - E
-        N = (1 - self.omega) / self.omega * D + F
-
-        return M, N
-
-    @override
-    def matriu_iteracio(self, A):
-        M, N = self.matrius_descomposicio(A)
-
-        return np.linalg.inv(M) @ N
-    
     @override
     def descompondre(self, A: np.ndarray):
-        return self.matrius_descomposicio(A)[0]
-    
+        D = np.diag(np.diag(A))
+        E = - np.tril(A, k=-1)
+
+        M = D / self.omega - E
+
+        return M, np.linalg.inv(M)
+
     @override
-    def aproximar(self, A, r):
-        # Resolem M y = r on M és una matriu triangular inferior
-        y = r.copy()
-        sol_sti(self.M, y)
+    def aproximar(self):
+        assert self.estat is not None
+        # Resolem M y = r, on M és una matriu triangular inferior
+        y = self.estat.r.copy()
+        sol_sti(self.estat.M, y)
         return y
 
-    @staticmethod
-    def trobar_omega_optima(A: np.ndarray, b: np.ndarray, x: np.ndarray, tol: np.float64, nitm: int):
-
-        omega = np.linspace(0.047, 1.60, 200, dtype = np.float64).reshape(-1, 1)
-        nit = np.zeros(len(omega), dtype =np.int64).reshape(-1, 1)
-
-        rho = omega.copy()
-
-        for i in range(len(omega)):
-            x = np.zeros(len(b)).reshape(-1,1)
-
-            # Matriu d'iteració
-            M = np.diag(np.diag(A)) / omega[i] + np.tril(A, k = -1)
-            matriu_iteracio = np.linalg.inv(M) @ (M - A)
-
-            # Càlcul del radi espectral de la matriu d'iteració
-            rho[i] = radi_espectral(matriu_iteracio)
-
-            metode = SobreRelaxacioSuccessiva(tol, nitm, omega[i])
-            x, r, it = metode.resoldre(A, b, x)
-
-            print(f"i: {i:3d}, " +
-                  f"omega: {omega[i][0]:7.4f}, " +
-                  f"rho: {rho[i][0]:7.4f}, " +
-                  f"num. iterats: {it:4d}")
-            if it != -1:
-                nit[i] = it
-            else:
-                nit[i] = nitm
-
-        nit = nit / max(nit)
-
 class GaussSeidel(SobreRelaxacioSuccessiva):
-    def __init__(self, tol: np.float64, nitm: int):
+    def __init__(self, tol: float, nitm: int):
         super().__init__(tol, nitm, 1)
-    
 
-class Gradient(MetodeIteratiu):
+
+class Gradient(MetodeIteratiu[EstatMetodeIteratiuGradient]):
+    @final
+    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
+        self.estat = EstatMetodeIteratiuGradient(A, b, x)
+        self.executar()
+
     @override
-    def aproximar(self, A, r):
-        alpha_k = np.dot(r, r) / np.dot(r, A @ r)
-        return alpha_k * r
+    def aproximar(self):
+        assert self.estat is not None
+        self.estat.alpha = (np.vdot(self.estat.r, self.estat.r) /
+                            np.vdot(self.estat.r, self.estat.A @ self.estat.r))
+        return self.estat.alpha * self.estat.r
+
+
+class GradientConjugat(MetodeIteratiu[EstatMetodeIteratiuGradientConjugat]):
+    """
+    La implementació és només vàlida per a matrius simètriques i definides positives.
+    """
+    @override
+    def aproximar(self):
+        assert self.estat is not None
+        if self.estat.k != 1:
+            self.estat.beta = - (np.vdot(self.estat.r, self.estat.A @ self.estat.p) /
+                                 np.vdot(self.estat.p, self.estat.A @ self.estat.p))
+        # Si k = 1, beta = 0 com ja s'ha inicialitzat.
+
+        # Direccions d'avançament
+        self.estat.p = self.estat.r + self.estat.beta * self.estat.p
+
+        self.estat.alpha = (np.vdot(self.estat.p, self.estat.r) /
+                            np.vdot(self.estat.p, self.estat.A @ self.estat.p))
+        return self.estat.alpha * self.estat.p
+
+    @final
+    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
+        self.estat = EstatMetodeIteratiuGradientConjugat(A, b, x)
+        # Ara, alpha = beta = 0 i p = r.
+        self.executar()
+
 
 # Mètodes iteratius
 
@@ -213,7 +266,6 @@ def radi_espectral(A):
     return np.max(np.abs(eigvals))
 
 
-
 # Mètode de Jacobi
 def jacobi(A, b, x, eps, nitm):
     """
@@ -235,6 +287,7 @@ def jacobi(A, b, x, eps, nitm):
                      assolir la precisió demanada.
     """
     return Jacobi(eps, nitm).resoldre(A, b, x)
+
 
 # Mètode de Gauss-Siedel
 def gauss_seidel(A, b, x, eps, nitm):
@@ -270,6 +323,7 @@ def gauss_seidel(A, b, x, eps, nitm):
     """
     # Escriviu aquí el vostre codi
     return x, norma_residu, nit
+
 
 # Mètode de Sobre-Relaxació Successiva (SOR)
 def sor(A, b, x, w, eps, nitm):
@@ -307,6 +361,7 @@ def sor(A, b, x, w, eps, nitm):
     # Escriviu aquí el vostre codi
     return x, norma_residu, nit
 
+
 # Mètode del gradient
 def gradient(A, b, x, ε, nitm):
     """
@@ -340,6 +395,7 @@ def gradient(A, b, x, ε, nitm):
     # Escriviu aquí el vostre codi
     return x, norma_residu, nit
 
+
 # Mètode del gradient conjugat
 def gradient_conjugat(A, b, x, ε, nitm):
     """
@@ -370,5 +426,3 @@ def gradient_conjugat(A, b, x, ε, nitm):
     """
     # Escriviu aquí el vostre codi
     return x, norma_residu, nit
-
-
