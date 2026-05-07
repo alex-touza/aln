@@ -37,9 +37,10 @@ class MetodeDirecte(Factoritzacio, ABC):
         self.b: None | np.ndarray = None
 
     @abstractmethod
-    def resoldre(self, b: np.ndarray):
+    def resoldre(self, b: np.ndarray) -> None:
         """
-        Resol el sistema lineal amb el terme independent `b`.
+        Resol el sistema lineal amb el terme independent `b` i en deixa
+        la solució en self.x.
         Aquesta funció s'ha d'executar després de `descompondre`.
         :param b: El terme independent del sistema.
         """
@@ -142,8 +143,13 @@ class Crout(FactoritzacioLUCompacta):
         self.partir_u_estr()
 
 class FactoritzacioLUGaussiana(FactoritzacioLU):
-    def __init__(self, A: np.ndarray):
+    def __init__(self, A: np.ndarray, pivotatge: bool = False):
+        """
+        :param: A La matriu del sistema.
+        :param: pivotatge Si el mètode fa servir pivotatge.
+        """
         super().__init__(A)
+        self.pivotatge = pivotatge
         self.p: None | np.ndarray = None
         self.b_original: None | np.ndarray = None
 
@@ -162,12 +168,13 @@ class FactoritzacioLUGaussiana(FactoritzacioLU):
 
     @override
     def factoritzar(self):
-        print("n", self.n)
-        self.p = np.array(list(range(self.n)))
-        assert self.p is not None
+        if self.pivotatge:
+            self.p = np.array(list(range(self.n)))
+            assert self.p is not None
 
         for k in range(self.n):
-            self.pivotar(k)
+            if self.pivotatge:
+                self.pivotar(k)
             for i in range(k + 1, self.n):
 
                 self.A[i][k] = self.A[i][k] / self.A[k][k]
@@ -179,15 +186,18 @@ class FactoritzacioLUGaussiana(FactoritzacioLU):
         self.partir_l_estr()
 
     def resoldre(self, b: np.ndarray):
-        # Desem el terme independent sense permutar per calcular
-        # el residu després
-        self.b_original = b.copy()
-        
-        super().resoldre(b[self.p[:]])
+        if self.pivotatge:
+            # Desem el terme independent sense permutar per calcular
+            # el residu després
+            self.b_original = b.copy()
+            
+            super().resoldre(b[self.p[:]])
+        else:
+            super().resoldre(b)
 
     @override
     def residu_solucio(self) -> np.floating:
-        return np.linalg.norm(self.b_original - self.A_original @ self.x)
+        return np.linalg.norm((self.b_original if self.pivotatge else self.b) - self.A_original @ self.x)
     
     @override
     def residu_factoritzacio(self) -> np.floating:
@@ -199,6 +209,9 @@ class FactoritzacioLUGaussiana(FactoritzacioLU):
 
 
 class FactoritzacioLUParcial(FactoritzacioLUGaussiana):
+    def __init__(self, A: np.ndarray):
+        super().__init__(A, pivotatge=True)
+    
     @override
     def pivotar(self, k: int):
         assert self.p is not None
@@ -210,6 +223,9 @@ class FactoritzacioLUParcial(FactoritzacioLUGaussiana):
         self.A[[k, r]] = self.A[[r, k]]
 
 class FactoritzacioLUParcialEsglaonat(FactoritzacioLUGaussiana):
+    def __init__(self, A: np.ndarray):
+        super().__init__(A, pivotatge=True)
+    
     @override
     def pivotar(self, k: int):
         assert self.p is not None
@@ -376,9 +392,8 @@ class Householder(FactoritzacioQR):
 
             assert self.Q is not None # Per fer feliç el type-checker
             self.Q = self.Q @ P_k
-            self.A = P_k @ self.A
-
-        self.R = self.A
+        # R = Q^(-1) A = Q^T A
+        self.R = self.Q.T @ self.A
 
 
 
