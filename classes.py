@@ -66,7 +66,8 @@ class FactoritzacioLU(MetodeDirecte, ABC):
         assert self.U is not None
         # Resoldre Lz = b, ignorant permutacions de moment
         z = self.b.copy()
-        sol_sti(self.L, z)
+        # No assumim 1s a la diagonal de L, perquè hi ha algorismes que no ho garanteixen
+        sol_sti(self.L, z, False)
 
         # Resoldre Ux = z
         self.x = z
