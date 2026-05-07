@@ -38,7 +38,8 @@ def sol_sti(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=True):
     for i in range(n):
         for j in range(i):
             b[i] -= A[i][j] * b[j]
-        b[i] /= A[i][i]
+        if not uns_a_la_diagonal:
+            b[i] /= A[i][i]
     return b
 
 
@@ -69,5 +70,7 @@ def sol_sts(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=False):
     for i in range(n - 1, -1, -1):
         for j in range(i + 1, n):
             b[i] -= A[i][j] * b[j]
-        b[i] /= A[i][i]
+        
+        if not uns_a_la_diagonal:
+            b[i] /= A[i][i]
     return b
