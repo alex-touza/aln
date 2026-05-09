@@ -28,8 +28,6 @@ class FactoritzacioQR(Factoritzacio):
 He considerat que la factorització LU amb el mètode de Gauss sense pivotament és un cas particular de les 
 factoritzacions amb pivotament, però amb el vector de permutació $p = (1,2,...,n)$.
 
-Al fitxer `aln.py` es poden trobar les funcions que es demanen a la tasca, però totes
-
 # Autoria
 
 Àlex Xavier Touza Luque
