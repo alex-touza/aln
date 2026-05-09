@@ -1,504 +1,476 @@
-"""
-metodes_directes.py
-
-Mètodes directes
-----------------
-
-sol_sti(A, b): Resolució d'un sistema triangular inferior
-
-sol_sts(A, b): Resolució d'un sistema triangular superior
-
-lu(A): Factorització LU d'una matriu quadrada A
-
-lu_pp(A): Factorització LU d'una matriu quadrada A amb pivot parcia
-
-lu_ppe(A): Factorització LU d'una matriu quadrada A amb pivot parcial esglaonat
-
-doolittle(A): Factorització LU de Doolittle d'una matriu quadrada A
-
-crout(A): Factorització LU de Crout d'una matriu quadrada A
-
-ldlt(A): Factorització LDLT d'una matriu quadrada A
-
-choleski(A): Factorització de Choleski d'una matriu quadrada A
-
-sol_lu (A, b): Resolució del sistema a partir de la factorització LU de la matriu A
-
-gs_classic(a): Factorització QR d'una matriu a mitjançant el mètode de Gram-Schmidt clàssic
-
-gs_modificat(a): Factorització QR d'una matriu a mitjançant el mètode de Gram-Schmidt modificat
-
-house(x, tol): Calcula el vector de Householder u i el coeficient beta per a un vector x
-qr_house(a): Factorització QR d'una matriu a mitjançant el mètode de Householder
-"""
-from typing import override, Tuple
+from abc import ABC, abstractmethod
+from typing import override
 
 import numpy as np
 
+from utils import sol_sti, sol_sts, invertir_diagonal
 
-# Solució de sistemes triangulars
 
-
-# Factorització LU: LU sense pivotatge, amb pivotatge parcial i pivotatge
-# parcial esglaonat
-
-class FactoritzacioLU:
+class Factoritzacio(ABC):
     def __init__(self, A: np.ndarray):
-        self.n = A.shape[0]
-        assert A.shape[1] == self.n
-
+        self.m, self.n = A.shape
         self.A = A
+        # Còpia per calcular el residu després de la factorització.
+        self.A_original = A.copy()
 
-    def pivotar(self, p: np.ndarray, k: int):
+    @abstractmethod
+    def factoritzar(self) -> None: pass
+
+    def partir(self) -> None:
         """
-        Aplica un tipus de pivotatge en un conjunt de dades matriu i vector.
+        Funció que agafa la matriu self.A modificada per self.factoritzar() i
+        desa en els camps corresponents les matrius de la factorització. Per
+        defecte, no fa res, així que no fa falta implementar-la si l'algorisme
+        de factorització ja desa en variables separades les matrius.
+        """
+        pass
+
+    @abstractmethod
+    def residu_factoritzacio(self) -> np.floating: pass
+
+
+class MetodeDirecte(Factoritzacio, ABC):
+    def __init__(self, A: np.ndarray):
+        super().__init__(A)
+        self.x: None | np.ndarray = None
+        self.b: None | np.ndarray = None
+
+    @abstractmethod
+    def resoldre(self, b: np.ndarray) -> None:
+        """
+        Resol el sistema lineal amb el terme independent `b` i en deixa
+        la solució en self.x.
+        Aquesta funció s'ha d'executar després de `descompondre`.
+        :param b: El terme independent del sistema.
+        """
+        pass
+
+    def residu_solucio(self) -> np.floating:
+        assert self.b is not None
+        assert self.x is not None
+        return np.linalg.norm(self.b - self.A_original @ self.x)
+
+class FactoritzacioLU(MetodeDirecte, ABC):
+    def __init__(self, A: np.ndarray):
+        super().__init__(A)
+        self.L: None | np.ndarray = None
+        self.U: None | np.ndarray = None
+
+    @override
+    def resoldre(self, b: np.ndarray):
+        self.b = b
+
+        assert self.b is not None
+        assert self.L is not None
+        assert self.U is not None
+        # Resoldre Lz = b, ignorant permutacions de moment
+        z = self.b.copy()
+        # No assumim 1s a la diagonal de L, perquè hi ha algorismes que no ho garanteixen
+        sol_sti(self.L, z)
+
+        # Resoldre Ux = z
+        self.x = z
+        assert self.x is not None
+        sol_sts(self.U, self.x)
+
+    @override
+    def residu_solucio(self) -> np.floating:
+        return np.linalg.norm(self.b - self.A_original @ self.x)
+    
+    def partir_l_estr(self):
+        """
+        Obté les matrius L i U suposant que L està continguda en
+        la part estrictament inferior de A.
+        """
+        self.L = np.tril(self.A, k=-1) + np.eye(self.n)
+        self.U = np.triu(self.A)
+
+    def partir_u_estr(self):
+        """
+        Obté les matrius L i U suposant que U està continguda en
+        la part estrictament superior de A.
+        """
+        self.L = np.tril(self.A)
+        self.U = np.triu(self.A, k=1) + np.eye(self.n)
+
+class FactoritzacioLUCompacta(FactoritzacioLU, ABC):
+    def residu_factoritzacio(self) -> np.floating:
+        assert self.L is not None
+        assert self.U is not None
+
+        return np.linalg.norm(self.A_original - self.L @ self.U)
+
+class Doolittle(FactoritzacioLUCompacta):
+    """
+    Calcula la factorització A = L U^T amb el mètode de Doolittle.
+    """
+    def factoritzar(self):         
+        for i in range(1, self.n):
+            self.A[i][0] /= self.A[0][0]
+
+        for k in range(1, self.n):
+            for j in range(k, self.n):
+                s = 0
+                for p in range(k):
+                    s += self.A[k][p] * self.A[p][j]
+
+                self.A[k][j] -= s
+            for i in range(k + 1, self.n):
+                s = 0
+                for p in range(k):
+                    s += self.A[i][p] * self.A[p][k]
+                self.A[i][k] = (self.A[i][k] - s) / self.A[k][k]
+    
+    def partir(self):
+        self.partir_l_estr()
+
+class Crout(FactoritzacioLUCompacta):
+    """
+    Calcula la factorització A = L U^T amb el mètode de Crout.
+    """
+    def factoritzar(self):
+        for j in range(1, self.n):
+            self.A[0][j] /= self.A[0][0]
+
+        for k in range(1, self.n):
+            for i in range(k, self.n):
+                s = 0
+                for p in range(k):
+                    s += self.A[i][p] * self.A[p][k]
+
+                self.A[i][k] -= s
+            for j in range(k + 1, self.n):
+                s = 0
+                for p in range(k):
+                    s += self.A[k][p] * self.A[p][j]
+                self.A[k][j] = (self.A[k][j] - s) / self.A[k][k]
+    
+    def partir(self):
+        self.partir_u_estr()
+
+class FactoritzacioLUGaussiana(FactoritzacioLU):
+    """
+    Calcula la factorització A = L U, per defecte sense pivotatge.
+    """
+    def __init__(self, A: np.ndarray, pivotatge: bool = False):
+        """
+        :param: A La matriu del sistema.
+        :param: pivotatge Si el mètode fa servir pivotatge.
+        """
+        super().__init__(A)
+        self.pivotatge = pivotatge
+        self.p: None | np.ndarray = None
+        self.b_original: None | np.ndarray = None
+
+    def pivotar(self, k: int):
+        """
+        Aplica un tipus de pivotatge al pas k-èssim, fent les permutacions corresponents
+        a self.p.
 
         Per defecte, no es fa res. Classes derivades de la classe `FactoritzacioLU`
         han d'implementar aquest mètode.
 
-        :param p: Vector de permutacions que guarda les reordenacions de files de la
-                    matriu, de llargada igual al nombre de files.
         :param k: Índex de la columna actual. És la posició del pivot en aquesta iteració.
         :return: No retorna cap valor. El càlcul és aplicat in-place sobre la matriu self.A.
         """
         pass
 
-    def calcular(self):
-        p = np.ndarray(range(self.n))
+    @override
+    def factoritzar(self):
+        if self.pivotatge:
+            self.p = np.array(list(range(self.n)))
+            assert self.p is not None
 
         for k in range(self.n):
-            self.pivotar(p, k)
+            if self.pivotatge:
+                self.pivotar(k)
             for i in range(k + 1, self.n):
 
                 self.A[i][k] = self.A[i][k] / self.A[k][k]
                 for j in range(k + 1, self.n):
-                   self.A[i][j] -= self.A[i][k] * self.A[k][j]
+                    self.A[i][j] -= self.A[i][k] * self.A[k][j]
 
-        return self.A, p
-
-
-class FactoritzacioLUParcial(FactoritzacioLU):
     @override
-    def pivotar(self, p: np.ndarray, k: int):
+    def partir(self):
+        self.partir_l_estr()
+
+    def resoldre(self, b: np.ndarray):
+        if self.pivotatge:
+            # Desem el terme independent sense permutar per calcular
+            # el residu després
+            self.b_original = b.copy()
+            
+            super().resoldre(b[self.p[:]])
+        else:
+            super().resoldre(b)
+
+    @override
+    def residu_solucio(self) -> np.floating:
+        return np.linalg.norm((self.b_original if self.pivotatge else self.b) - self.A_original @ self.x)
+    
+    @override
+    def residu_factoritzacio(self) -> np.floating:
+        assert self.L is not None
+        assert self.U is not None
+        A_ = self.A_original if self.p is None else self.A_original[self.p[:]]
+
+        return np.linalg.norm(A_ - self.L @ self.U)
+
+
+class FactoritzacioLUParcial(FactoritzacioLUGaussiana):
+    """
+    Calcula la factorització A = L U amb pivotatge parcial.
+    """
+    def __init__(self, A: np.ndarray):
+        super().__init__(A, pivotatge=True)
+    
+    @override
+    def pivotar(self, k: int):
+        assert self.p is not None
         # Valor màxim dels elements a la columna k, de la diagonal cap a baix.
         # Fem això en lloc d'un bucle perquè és molt més ràpid.
-        r = np.argmax(self.A[k:self.n, k])
+        r = np.argmax(np.abs(self.A[k:self.n, k])) + k
 
-        p[[k, r]] = p[[r, k]]
+        self.p[[k, r]] = self.p[[r, k]]
         self.A[[k, r]] = self.A[[r, k]]
 
-
-class FactoritzacioLUParcialEsglaonat(FactoritzacioLU):
+class FactoritzacioLUParcialEsglaonat(FactoritzacioLUGaussiana):
+    """
+    Calcula la factorització A = L U amb pivotatge parcial esglaonat.
+    """
+    def __init__(self, A: np.ndarray):
+        super().__init__(A, pivotatge=True)
+    
     @override
-    def pivotar(self, p: np.ndarray, k: int):
+    def pivotar(self, k: int):
+        assert self.p is not None
         r = 0
         max_val = 0
         for i in range(k, self.n):
             s = max(abs(self.A[i][j]) for j in range(k, self.n))
-
+            if s == 0:
+                continue
             act_val = abs(self.A[i][k]) / s
             if act_val > max_val:
                 r = i
                 max_val = act_val
 
-        p[[k, r]] = p[[r, k]]
+        self.p[[k, r]] = self.p[[r, k]]
         self.A[[k, r]] = self.A[[r, k]]
 
 
-def lu(A):
+class FactoritzacioLDLT(MetodeDirecte):
     """
-    lu(A): Factorització LU d'una matriu quadrada A.
-
-    Input:
-       A: Matriu quadrada d'ordre n x n, que es modificarà in-place per
-       contenir les components de L i U.
-
-    Output:
-       A: modificada, de manera que:
-
-          La part triangular estrictament inferior de A (a(i,j), 1 <=j < i <= n)
-          conté els coeficients m(i,j) (1 <= j < i <= n) de la matriu L.
-
-          La part triangular superior de A (a(i,j) (a(i,j), 1 <= i <= j <= n)
-          conté els coeficients u(i,j) (1 <= i <= j <= n) de la matriu U.
+    Calcula la factorització A = L D^(-1) L^T, on L és una matriu triangular inferior i
+    D és una matriu diagonal.
+    A ha de ser simètrica.
     """
-    factoritzacio = FactoritzacioLU(A)
-    factoritzacio.calcular() # retorna p, però no cal
-    return A
+    def __init__(self, A: np.ndarray):
+        self.L: None | np.ndarray = None
+        self.D: None | np.ndarray = None
+        super().__init__(A)
 
+    @override
+    def factoritzar(self):
+        n = self.A.shape[0]
+        assert self.A.shape[1] == n
 
-def lu_pp(A):
-    """
-    lu_pp(A): Realitza la factorització LU de la matriu A amb pivot parcial.
-
-    Input:
-       A: Matriu quadrada d'ordre n x n, que es modificarà in-place per contenir
-         les components de L i U.
-
-    Output:
-       A: modificada de manera que la part triangular superior de A conté
-         els elements u(i,j) (1 <=i <= j < n) de la matriu U i la part
-         triangular estrictament inferior (i.e., per sota de la diagonal) de
-         A conté els elements m(i,j) (1 <=j < i <= n) de la matriu L.
-
-       p: vector de permutació que indica l'ordre de les files després del
-         pivot parcial.
-    """
-
-    factoritzacio = FactoritzacioLUParcial(A)
-    return factoritzacio.calcular()
-
-
-def lu_ppe(A):
-    """
-    lu_pp(A): Realitza la factorització LU de la matriu A amb pivot parcial
-              esglaonat.
-
-    Input:
-      A: Matriu quadrada d'ordre n x n, que es modificarà in-place per contenir
-        les components de L i U.
-
-    Output:
-      A: modificada de manera que la part triangular superior de A conté
-        els elements u(i,j) (1 <=i <= j < n) de la matriu U i la part
-        triangular estrictament inferior (i.e., per sota de la diagonal) de
-        A conté els elements m(i,j) (1 <=j < i <= n) de la matriu L.
-
-      p: vector de permutació que indica l'ordre de les files després del
-        pivot parcial esglaonat.
-    """
-    factoritzacio = FactoritzacioLUParcialEsglaonat(A)
-    return factoritzacio.calcular()
-
-
-# Esquemes compactes: Doolittle, Crout, LDLT i Choleski
-
-def doolittle(A):
-    """
-    doolittle(A): Factorització LU de Doolittle d'una matriu quadrada A.
-
-    Input:
-       A: Matriu quadrada d'ordre n x n, que es modificarà in-place per
-         contenir les components de L i U.
-
-    Output:
-       A: modificada de manera que la part triangular superior de A
-         (a(i,j), 1 <=j < i <= n) conté els elements u(i,j), 1 <= i <= j <=
-         n, de la matriu U i la part triangular estrictament inferior (i.e.,
-         per sota de la diagonal) de A (a(i,j), 1 <=j < i <= n) conté els
-         elements m(i,j), 1 <=j < i <= n, de la matriu L.
-    """
-    n = A.shape[0]
-
-    for i in range(1, n):
-        A[i][0] /= A[0][0]
-
-    for k in range(1, n):
-        for j in range(k, n):
-            s = 0
-            for p in range(k):
-                s += A[k][p] * A[p][j]
-
-            A[k][j] -= s
-        for i in range(k + 1, n):
-            s = 0
-            for p in range(k):
-                s += A[i][p] * A[p][k]
-            A[i][k] = (A[i][k] - s) / A[k][k]
-
-    return A
-
-
-def crout(A):
-    """
-    crout(A): Factorització LU de Crout d'una matriu quadrada A.
-
-    Input:
-       A: Matriu quadrada d'ordre n x n, que es modificarà in-place per
-         contenir les components de L i U.
-
-    Output:
-       A: modificada de manera que la part triangular estrictament superior de A
-         (a(i,j), 1 <=j < i <= n) conté els elements u(i,j), 1 <= i < j <= n, de
-         la matriu U i la part triangular inferior (i.e., per sota de la diagonal)
-         de A (a(i,j), 1 <=j <= i <= n) conté els elements m(i,j), 1 <=j < i <= n,
-         de la matriu L.
-    """
-    n = A.shape[0]
-
-    for j in range(1, n):
-        A[0][j] /= A[0][0]
-
-    for k in range(1, n):
-        for i in range(k, n):
-            s = 0
-            for p in range(k):
-                s += A[i][p] * A[p][k]
-
-            A[i][k] -= s
-        for j in range(k + 1, n):
-            s = 0
-            for p in range(k):
-                s += A[k][p] * A[p][j]
-            A[k][j] = (A[k][j] - s) / A[k][k]
-
-    return A
-
-
-def eldlt(A):
-    """
-    ldlt(A): Factorització LDLT d'una matriu quadrada A.
-
-    Input:
-        A: Matriu quadrada d'ordre n x n, que es modificarà in-place per
-          contenir les components de L i D.
-
-    Output:
-        A: modificada de manera que la part triangular estrictament inferior de
-          A (a(i,j), 1 <=j < i <= n) conté els elements l(i,j), 1 <=j < i <= n, de
-          la matriu L i la diagonal de A (a(i,i), 1 <= i <= n) conté els elements
-          d(i,i), 1 <= i <= n, de de la matriu D.
-    """
-    n = A.shape[0]
-    assert A.shape[1] == n
-
-    #A[1:][0] /= A[0][0]
-    for i in range(2, n + 1):
-        A[i - 1][0] = A[i - 1][0] / A[0][0]
-    for k in range(2, n + 1):
-        A[k - 1][k - 1] -= np.sum([
-                A[k - 1][r - 1] * A[k - 1][r - 1] * A[r - 1][r - 1]
-                for r in range(1, k)
-        ])
-
-        for i in range(k + 1, n + 1):
-            A[i - 1][k - 1] -= np.sum([
-                A[i - 1][r - 1] * A[r - 1][r - 1] * A[k - 1][r - 1]
-                for r in range(1, k)
+        # A[1:][0] /= A[0][0]
+        for i in range(1, n):
+            self.A[i][0] /= self.A[0][0]
+        for k in range(1, n):
+            self.A[k][k] -= sum([
+                self.A[k][r] ** 2 * self.A[r][r]
+                for r in range(k)
             ])
-            A[i - 1][k - 1] /= A[k - 1][k - 1]
-    return A
 
+            for i in range(k + 1, n):
+                self.A[i][k] -= sum([
+                    self.A[i][r] * self.A[r][r] * self.A[k][r]
+                    for r in range(k)
+                ])
+                self.A[i][k] /= self.A[k][k]
+    @override
+    def partir(self):
+        self.D = np.diag(np.diag(self.A))
+        self.L = np.tril(self.A, k=-1) + np.eye(self.n)
 
-def choleski(A):
+    @override
+    def residu_factoritzacio(self) -> np.floating:
+        assert self.D is not None
+        assert self.L is not None
+        return np.linalg.norm(self.A_original - self.L @ self.D @ self.L.T)
+
+    @override
+    def resoldre(self, b: np.ndarray):
+        self.b = b
+        assert self.D is not None
+        assert self.L is not None
+        assert self.b is not None
+        # Hem de resoldre LDL^T x = b
+
+        # Resolem Ly = b
+        y = self.b.copy()
+        sol_sti(self.L, y)
+
+        # Resolem L^T x = D^(-1) y
+        self.x = invertir_diagonal(self.D) @ y
+        assert self.x is not None
+        sol_sts(self.L.T, self.x)
+
+        return self.x
+
+class FactoritzacioCholesky(MetodeDirecte):
     """
-    choleski(A): Factorització de Choleski d'una matriu quadrada A.
-
-    Input:
-        A: Matriu quadrada d'ordre n x n, que es modificarà in-place per
-          contenir les components de L.
-    Output:
-        A: modificada de manera que la part triangular inferior de A (a(i,j),
-          1 <= j < i <= n) conté els elements l(i,j), 1 <= j < i <= n, de la
-        matriu L i la diagonal de A (a(i,i), 1 <= i <= n) conté els elements
-        l(i,i), 1 <= i <= n, de la matriu L.
+    Calcula la factorització A = L L^T, on L és una matriu triangular inferior.
+    A ha de ser simètrica i definida positiva.
     """
+    def __init__(self, A: np.ndarray):
+        self.L: None | np.ndarray = None
+        super().__init__(A)
 
-    return A
+    @override
+    def factoritzar(self) -> None:
+        self.A[0][0] = np.sqrt(self.A[0][0])
+        for i in range(1, self.n):
+            self.A[i][0] /= self.A[0][0]
+        for j in range(1, self.n):
+            self.A[j][j] -= sum([self.A[j][k] ** 2 for k in range(j)])
+            self.A[j][j] = np.sqrt(self.A[j][j])
+            for i in range(j + 1, self.n):
+                self.A[i][j] -= sum([self.A[i][k] * self.A[j][k] for k in range(j)])
+                self.A[i][j] /= self.A[j][j]
+    @override
+    def partir(self):
+        self.L = np.tril(self.A)
 
+    @override
+    def resoldre(self, b):
+        assert self.L is not None
+        self.b = b
+        # Resol L y = b
+        assert self.b is not None
+        y = self.b.copy()
+        sol_sti(self.L, y)
 
-# Solució a partir de la factorització LU de la matriu A del sistema lineal
-# Ax = b
+        # Resolem L^T x = y
+        self.x = y
+        assert self.x is not None
+        sol_sts(self.L.T, self.x)
 
-
-def sol_lu(A, b, l_amb_uns_a_la_diagonal=True):
-    """
-    sol_lu(A, b): Resolució del sistema a partir de la factorització LU de
-                  la matriu $A$ (vegeu la descripció dels paràmetres a sota).
-
-    Resol el sistema lineal Ax = b donada la factorització LU de la matriu A que
-    proporciona la funció lu(A) (o lu_pp(A), o lu_ppe(A), o doolittle(A), o
-    crout(A), o ldlt(A), o choleski(A)). El vector b es modificarà in-place per
-    contenir, a la sortida, la solució del sistema lineal Ax = b.
-
-    Remarca: Si A és la matriu que torna la funció lu_pp(A), quan fem la
-    factorització LU amb pivot parcial (o la funció lu_ppe(A), quan fem la
-    factorització LU amb pivot parcial esglaonat), llavors el vector b ha de ser
-    reordenat segons el vector de permutació p que torna la funció lu_pp(A) (o
-    lu_ppe(A)) abans de cridar a sol_lu(A, b). En Python, això es pot fer
-    simplement fent b = b[p[:]] abans de cridar a sol_lu(A, b).
-
-    Input:
-        A: Matriu quadrada d'ordre n x n, tal com surt de la funció lu(A) (o
-          lu_pp(A), o lu_ppe(A) o doolittle(A), o crout(A), o ldlt(A), o
-          choleski(A):
-
-          Si el paràmetre (opcional) l_amb_uns_a_la_diagonal = True (valor per
-          defecte), es suposa que els elements de la diagonal de L són 1s, de
-          manera que:
-
-          * La part triangular estrictament inferior de A,
-                    a(i,j), 1 <= j < i <= n,
-            conté els elements
-                    m(i,j), 1 <= j < i <= n,
-            de la matriu L, mentre que
-          * la part triangular superior de A,
-                    a(i,j), 1 <= i <= j <= n,
-            conté els elements
-                    u(i,j), 1 <= i <= j <= n,
-            de la matriu U.
-
-          Per contra, si el paràmetre (opcional) l_amb_uns_a_la_diagonal =
-          False, es suposa que els elements de la diagonal de U són 1s, de
-          manera que:
-
-          * la part triangular estrictament superior de A,
-                    a(i,j), 1 <=i < j <= n,
-            conté els elements
-                    u(i,j), 1 <=i < j <= n,
-            de la matriu U, mentre que
-
-          * la part triangular inferior de A,
-                    a(i,j), 1 <= j <= i <= n,
-            conté els elements
-                    m(i,j), 1 <= j <= i <= n,
-            de la matriu L.
-
-        b: Vector (matriu n x 1) qeu conté el terme independent del sistema
-          lineal Ax = b.
-
-    Output:
-        b: Vector (matriu n x 1) que ara conté la solució del sistema lineal
-          Ax = b.
-    """
+    @override
+    def residu_factoritzacio(self):
+        return np.linalg.norm(self.A_original - self.L @ self.L.T)   
     
-    n = b.shape[0]
-    for i in range(1, n):
-        for j in range(i):
-            b[i] -= A[i][j] * b[j]
-
-    for i in range(n - 1, -1, -1):
-        for j in range(i + 1, n):
-            b[i] -= A[i][j] * b[j]
-        b[i] /= A[i][i]
-
-    return b
 
 
-# Factorització QR: Mètodes de Gram-Schmidt classic, Gram-Schmidt modificat i
-# Householder
-
-# TODO modificar a in-place
-def gs_classic(a):
+class FactoritzacioQR(Factoritzacio, ABC):
     """
-    gs_classic(a): Factorització QR d'una matriu a mitjançant el mètode de
-                    Gram-Schmidt clàssic.
-
-    Input:
-        a: Matriu m x n que es modificarà in-place per contenir les
-          components de Q.
-
-    Output:
-        a: modificada de manera que ara conté les components de Q
-        r: Matriu n x n que conté les components de R.
+    Classe abstracta per a les factoritzacions QR.
     """
-    n, m = a.shape
-    q = np.zeros((m, n))
-    r = np.zeros((n, n))
-    r[0][0] = np.linalg.norm(a[:, 0])
-    print('r', r[0][0])
-    q[:, 0] = a[:, 0] / r[0][0]
+    def __init__(self, A: np.ndarray):
+        super().__init__(A)
+        self.Q: None | np.ndarray = None
+        self.R: None | np.ndarray = None
 
-    for k in range(1, n):
-        for j in range(k - 1):
-            r[j][k] = np.dot(q[:, j], a[:, k])
+    @override
+    def residu_factoritzacio(self) -> np.floating:
+        assert self.Q is not None
+        assert self.R is not None
+        return np.linalg.norm(self.A_original - self.Q @ self.R)
 
-        a[:, k] = a[:, k] - sum([r[v][k] * q[:, v] for v in range(k)])
-        r[k][k] = np.linalg.norm(a[:, k])
-        q[:, k] = a[:, k] / r[k][k]
+    def residu_ortogonalitat(self) -> np.floating:
+        assert self.Q is not None
+        assert self.R is not None
+        return np.linalg.norm(np.eye(self.m) - self.Q.T @ self.Q)
 
-    return q, r
-
-# TODO modificar a in-place
-def gs_modificat(a):
+class Householder(FactoritzacioQR):
     """
-    qr_modificat(a): Factorització QR d'una matriu a mitjançant el mètode
-                    modificat de Gram-Schmidt.
-
-    Input:
-        a: Matriu m x n que es modificarà in-place per contenir les
-          components de Q.
-
-    Output:
-        a: modificada de manera que ara conté les components de Q
-
-        r: Matriu n x n que conté les components de R.
+    Calcula la factorització A = Q R amb el mètode de Householder.
     """
-    n, m = a.shape
-
-    r = np.zeros((n, n))
-    q = np.zeros((n, n))
-
-    r[0][0] = np.linalg.norm(a[:, 0])
-    q[:, 0] = a[:, 0] / r[0][0]
-
-    for k in range(1, n):
-        for s in range(k, n):
-            r[k - 1, s] = np.dot(q[:, k - 1], a[:, s])
-            a[:, s] -= r[k - 1, s] * q[:, k - 1]
-
-        r[k][k] = np.linalg.norm(a[:, k])
-        q[:, k] = a[:, k] / r[k][k]
+    def __init__(self, A: np.ndarray, tol: float = 1.0e-14):
+        super().__init__(A)
+        self.tol = tol
 
 
-    return q, r
+    def vector(self, x: np.ndarray):
+        norm_x = np.linalg.norm(x, ord=2)
 
-def house(x: np.ndarray, tol=1.0e-14) -> Tuple[float, np.ndarray]:
+        v = - norm_x if x[0] > 0 else norm_x
+        u = x.copy()
+        u[0] -= v
+
+        if np.abs(v) < self.tol: beta = 0.0
+        else: beta = - 1.0 / (v * u[0])
+
+        return beta, u
+
+    @override
+    def factoritzar(self) -> None:
+        n_steps = self.n if self.m > self.n else self.n - 1
+
+        self.Q = np.eye(self.m)
+
+        for k in range(n_steps):
+            target = self.A[k:, k]
+            if np.max(np.abs(target[1:])) < self.tol: continue
+
+            beta, u = self.vector(target)
+            H = np.eye(self.m - k) - beta * np.outer(u, u)
+            P_k = np.block([
+                [np.eye(k),         np.zeros((k, self.m - k))  ],
+                [np.zeros((self.m - k, k)),  H                   ]
+            ])
+
+            assert self.Q is not None # Per fer feliç el type-checker
+            self.Q = self.Q @ P_k
+        # R = Q^(-1) A = Q^T A
+        assert self.Q is not None # De nou, per fer feliç el type-checker
+        self.R = self.Q.T @ self.A
+
+
+
+class GramSchmidtClassic(FactoritzacioQR):
     """
-    house(x, tol): Calcula el vector de Householder u i el coeficient beta per a
-                   un vector x
-
-    Input:
-        x: Vector d'entrada que es vol transformar.
-
-        tol: Tolerància per a la detecció de components petits en x.
-
-    Output:
-        beta: Coeficient que determina la matriu de Householder.
-
-        u: Vector de Householder que defineix la matriu de Householder H = I -
-           beta * u * u^T.
+    Calcula la factorització A = Q R amb el mètode de Gram-Schmidt clàssic.
     """
-    x = np.asanyarray(x, dtype=np.float64)
-    norm_x = np.linalg.norm(x, ord=2)
-    v = - norm_x if x[0] > 0 else norm_x
-    u = x.copy()
-    u[0] -= v
-    if np.abs(v) < tol: beta = 0.0
-    else: beta = - 1.0 / (v * u[0])
-    return beta, u
+    def factoritzar(self) -> None:
+        self.R = np.zeros((self.m, self.n))
+        self.Q = np.zeros((self.m, self.m))
+        assert self.R is not None
+        assert self.Q is not None
 
+        self.R[0][0] = np.linalg.norm(self.A[:, 0])
+        self.Q[:, 0] = self.A[:, 0] / self.R[0][0]
 
-def qr_house(A: np.ndarray, tol=1.0e-14):
+        for k in range(1, self.n):
+            for j in range(k):
+                self.R[j][k] = np.dot(self.Q[:, j], self.A[:, k])
+
+            # axis=0 suma respecte els vectors fila de cada summand
+            self.A[:, k] -= np.sum([self.R[v][k] * self.Q[:, v] for v in range(k)], axis=0)
+            self.R[k][k] = np.linalg.norm(self.A[:, k])
+            self.Q[:, k] = self.A[:, k] / self.R[k][k]
+    # No cal implementar partir, ja que no ja tenim les matrius Q i R
+
+class GramSchmidtModificat(FactoritzacioQR):
     """
-    qr_house(A): Factorització QR d'una matriu a mitjançant el mètode de
-                 Householder.
-
-    Input:
-        A: Matriu m x n que conté les components de a.
-
-    Output:
-        q: Matriu m x m que conté les components de Q.
-
-        r: Matriu m x n amb les components de R.
+    Calcula la factorització A = Q R amb el mètode de Gram-Schmidt modificat.
     """
-    m, n = A.shape
+    def factoritzar(self) -> None:
+        self.R = np.zeros((self.m, self.n))
+        self.Q = np.zeros((self.m, self.m))
+        assert self.R is not None
+        assert self.Q is not None
 
-    n_steps = n if m > n else n - 1
+        self.R[0][0] = np.linalg.norm(self.A[:, 0])
+        self.Q[:, 0] = self.A[:, 0] / self.R[0][0]
 
-    Q = np.eye(m)
+        for k in range(1, self.n):
+            for s in range(k, self.n):
+                self.R[k - 1, s] = np.dot(self.Q[:, k - 1], self.A[:, s])
+                self.A[:, s] -= self.R[k - 1, s] * self.Q[:, k - 1]
 
-    for k in range(n_steps):
-        target = A[k:, k]
-        if np.max(np.abs(target[1:])) < tol: continue
-
-        beta, u = house(target, tol)
-        H = np.eye(m - k) - beta * np.outer(u, u)
-        P_k = np.block([
-            [np.eye(k),         np.zeros((k, m - k))  ],
-            [np.zeros((m - k, k)),  H                   ]
-        ])
-        Q = Q @ P_k
-        A = P_k @ A
-
-    return Q, A
+            self.R[k][k] = np.linalg.norm(self.A[:, k])
+            self.Q[:, k] = self.A[:, k] / self.R[k][k]
+    # No cal implementar partir, ja que ja tenim les matrius Q i R
