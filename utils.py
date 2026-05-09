@@ -9,8 +9,12 @@ def invertir_diagonal(D: np.ndarray):
 
     return np.diag(elements)
 
+# A les següents funcions, he eliminat el paràmetre uns_a_la_diagonal perquè
+# si la matriu ho compleix, aleshores simplement les divisions no tindran efecte.
+# Això simplifica la crida a sol_sti i sol_sts en les funcions de LUGaussiana.
 
-def sol_sti(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=True):
+
+def sol_sti(A: np.ndarray, b: np.ndarray):
     """
     sol_sti(A, b): Resolució de un sistema triangular inferior amb 1s a la
                   diagonal.
@@ -22,13 +26,9 @@ def sol_sti(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=True):
     del sistema lineal Ax = b.
 
     Input:
-        A: Matriu triangular inferior d'ordre n x n, amb 1s a la diagonal si el
-          paràmetre (opcional) uns_a_la_diagonal = True.
+        A: Matriu triangular inferior d'ordre n x n.
 
         b: Matriu n x 1 que conté el terme independent del sistema.
-
-        uns_a_la_diagonal: (opcional) si és True (valor per defecte), la matriu
-          A té 1s a la diagonal.
 
     Output:
         b: Matriu n x 1 que ara conté la solució del sistema.
@@ -38,12 +38,11 @@ def sol_sti(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=True):
     for i in range(n):
         for j in range(i):
             b[i] -= A[i][j] * b[j]
-        if not uns_a_la_diagonal:
-            b[i] /= A[i][i]
+        b[i] /= A[i][i]
     return b
 
 
-def sol_sts(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=False):
+def sol_sts(A: np.ndarray, b: np.ndarray):
     """
     sol_sts(A,b): Resolució d'un sistema triangular superior.
 
@@ -54,13 +53,9 @@ def sol_sts(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=False):
     del sistema lineal Ax = b.
 
     Input:
-        A: Matriu triangular superior d'ordre n x n, amb 1s a la diagonal si el
-          paràmetre (opcional) uns_a_la_diagonal = True.
+        A: Matriu triangular superior d'ordre n x n.
 
         b: Matriu n x 1 que conté el terme independent del sistema.
-
-        uns_a_la_diagonal: (opcional) si és True, la matriu A té 1s a la
-           digonal.
 
     Output:
         b: Matriu n x 1 que ara conté la solució del sistema.
@@ -70,7 +65,5 @@ def sol_sts(A: np.ndarray, b: np.ndarray, uns_a_la_diagonal=False):
     for i in range(n - 1, -1, -1):
         for j in range(i + 1, n):
             b[i] -= A[i][j] * b[j]
-        
-        if not uns_a_la_diagonal:
-            b[i] /= A[i][i]
+        b[i] /= A[i][i]
     return b
