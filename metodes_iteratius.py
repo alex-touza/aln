@@ -183,9 +183,7 @@ class SobreRelaxacioSuccessiva(MetodeIteratiuDescomposicio):
     @override
     def descompondre(self, A: np.ndarray):
         D = np.diag(np.diag(A))
-        E = - np.tril(A, k=-1)
-
-        M = D / self.omega - E
+        M = D / self.omega + np.tril(A, k=-1)
 
         return M, np.linalg.inv(M)
 
