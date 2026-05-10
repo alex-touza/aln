@@ -175,7 +175,7 @@ class Jacobi(MetodeIteratiuDescomposicio):
 
 class SobreRelaxacioSuccessiva(MetodeIteratiuDescomposicio):
     def __init__(self, tol: float, nitm: int, omega: float):
-        assert 0 <= omega <= 2
+        assert 0 < omega < 2
 
         super().__init__(tol, nitm)
         self.omega = omega
