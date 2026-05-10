@@ -75,6 +75,7 @@ class FactoritzacioLU(MetodeDirecte, ABC):
 
     @override
     def residu_solucio(self) -> np.floating:
+        assert self.b is not None
         return np.linalg.norm(self.b - self.A_original @ self.x)
     
     def partir_l_estr(self):
@@ -196,6 +197,7 @@ class FactoritzacioLUGaussiana(FactoritzacioLU):
 
     def resoldre(self, b: np.ndarray):
         if self.pivotatge:
+            assert self.p is not None
             # Desem el terme independent sense permutar per calcular
             # el residu després
             self.b_original = b.copy()
@@ -206,6 +208,7 @@ class FactoritzacioLUGaussiana(FactoritzacioLU):
 
     @override
     def residu_solucio(self) -> np.floating:
+        assert self.x is not None
         return np.linalg.norm((self.b_original if self.pivotatge else self.b) - self.A_original @ self.x)
     
     @override
@@ -360,6 +363,7 @@ class FactoritzacioCholesky(MetodeDirecte):
 
     @override
     def residu_factoritzacio(self):
+        assert self.L is not None
         return np.linalg.norm(self.A_original - self.L @ self.L.T)   
     
 
