@@ -67,3 +67,21 @@ def sol_sts(A: np.ndarray, b: np.ndarray):
             b[i] -= A[i][j] * b[j]
         b[i] /= A[i][i]
     return b
+
+def radi_espectral(A):
+    """radi_espectral(A): Càlcul del radi espectral de la matriu A.
+
+    Def. Sigui A una matriu n x n. El radi espectral de A és el mòdul del valor propi de A de mòdul màxim.
+
+    Input
+    -----
+    A : Array n x n float64
+        Matriu n x n de la qual es calcula el radi espectral.
+
+    Output
+    ------
+    float64
+        Radi espectral de la matriu A.
+    """
+    eigvals = np.linalg.eigvals(A)
+    return np.max(np.abs(eigvals))
