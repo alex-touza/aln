@@ -69,9 +69,8 @@ class EstatMetodeIteratiuGradientConjugat(EstatMetodeIteratiuGradient):
         self.p: np.ndarray = self.r
         self.beta: float = 0
 
-
+# Tipus de l'estat, on es desa la informació sobre el procés d'aproximació actual.
 T = TypeVar('T', bound=EstatMetodeIteratiu)
-
 
 class MetodeIteratiu(Generic[T], ABC):
     # Al constructor dels mètodes iteratius, s'especifiquen els
@@ -86,7 +85,7 @@ class MetodeIteratiu(Generic[T], ABC):
         """
         Funció que han d'implementar els mètodes iteratius.
 
-        Retorna el valor y tal que, si l'aproximació actual és x,
+        :returns: El valor y tal que, si l'aproximació actual és x,
         l'aproximació següent és x + y.
         """
         pass
@@ -238,189 +237,3 @@ class GradientConjugat(MetodeIteratiu[EstatMetodeIteratiuGradientConjugat]):
         self.estat = EstatMetodeIteratiuGradientConjugat(A, b, x)
         # Ara, alpha = beta = 0 i p = r.
         self.executar()
-
-
-# Mètodes iteratius
-
-def radi_espectral(A):
-    """radi_espectral(A): Càlcul del radi espectral de la matriu A.
-
-    Def. Sigui A una matriu n x n. El radi espectral de A és el mòdul del valor propi de A de mòdul màxim.
-
-    Input
-    -----
-    A : Array n x n float64
-        Matriu n x n de la qual es calcula el radi espectral.
-
-    Output
-    ------
-    float64
-        Radi espectral de la matriu A.
-
-    Nota: podeu fer servir la funció eigvals. Recordeu que cal importar-la:
-    from numpy.linalg import eigvals
-    """
-    eigvals = numpy.linalg.eigvals(A)
-    return np.max(np.abs(eigvals))
-
-
-# Mètode de Jacobi
-def jacobi(A, b, x, eps, nitm):
-    """
-    Solució d'un sistema lineal A x = b, A matriu n x n no singular, b vector
-    amb n components (matriu n x 1),  pel mètode iteratiu de Jacobi.
-
-    Input:
-        A (n x n float64): Matriu del sistema.
-        b (n x 1 float64): Terme independent del sistema.
-        x (n x 1 float64): Aproximació inicial de la solució.
-        eps (float64): error relatiu (precisió) demanada. Les iteracions del
-                      mètode s'aturen quan ||r|| = ||b - A x|| <= eps * ||b||.
-        nitm (int64): màxim nombre d'iteracions permeses.
-
-    Output:
-        x (n x 1 float 64): Última aproximació trobada de la soluvió.
-        r (float 64): norma del residu de l'última aproximació calulada.
-        nit (int64): nombre d'iteracions del mètode que s'han dut a terme per
-                     assolir la precisió demanada.
-    """
-    return Jacobi(eps, nitm).resoldre(A, b, x)
-
-
-# Mètode de Gauss-Siedel
-def gauss_seidel(A, b, x, eps, nitm):
-    """
-    Càlcul de la solució del sistema Ax = b. A matriu n x n no singular, b
-    vector amb n components (matriu n x 1), pel mètode iteratiu de Gauss-Seidel
-
-    Input
-    A : Array n x n float64
-        Matriu del sistema A x = b, A és una matriu n x n.
-    b : Array n x 1 float64
-        Terme independent del sistema A x = b. b és un vector amb n components (matriu n x 1)
-    x : Array n x 1 float64
-        Aproximació inicial de la solució. És un vector amb n components (matriu n x 1). Llevat no es conegui alguna informació sobre la solució podem agafar x = 0.
-    eps : float64
-        Error relatiu (precisió) demanada. Les iteracions del mètode s'aturen quan ||r|| = ||b - Ax|| <= eps * ||b||, i es torna l'ultima aproximació calculada de la solució.
-    nitm : int64
-        Nombre màxim d'iteracions permeses.
-
-    Output
-    x : Array n x 1 float 64
-        Última aproximació trobada de la solució del sistema.
-    norma_residu : int64
-        Norma 2 del residu de l'última aproximació trobada de la solució del
-        sistema.
-    nit: int64
-        Nombre d'iteracions necessàries per assolir la precisió demanada en
-        l'aproximació de la solució del sistema. Si no hi ha convergència en el
-        nombre màxim d'iteracions, nit = -1.
-
-    Nota: per resoldre el sistema triangular inferior, heu de fer servir la
-    funció sol_sti que ja teniu programada.
-    """
-    # Escriviu aquí el vostre codi
-    return x, norma_residu, nit
-
-
-# Mètode de Sobre-Relaxació Successiva (SOR)
-def sor(A, b, x, w, eps, nitm):
-    """
-    Càlcul de la solució del sistema Ax = b. A matriu n x n no singular, b
-    vector amb n components (matriu n x 1), pel mètode iteratiu de Sobre-Relaxació Successiva (SOR: Successive Over-Relaxation).
-
-    Input
-    A : Array n x n float64
-        Matriu del sistema A x = b, A és una matriu n x n.
-    b : Array n x 1 float64
-        Terme independent del sistema A x = b. b és un vector amb n components (matriu n x 1)
-    x : Array n x 1 float64
-        Aproximació inicial de la solució. És un vector amb n components (matriu n x 1). Llevat no es conegui alguna informació sobre la solució podem agafar x = 0.
-    w : float64
-        Paràmetre de sobre-ralaxació.
-    eps : float64
-        Error relatiu (precisió) demanada. Les iteracions del mètode s'aturen quan ||r|| = ||b - Ax|| <= eps * ||b||, i es torna l'ultima aproximació calculada de la solució.
-    nitm : int64
-        Nombre màxim d'iteracions permeses.
-
-    Output
-    x : Array n x 1 float 64
-        Última aproximació trobada de la solució del sistema.
-    norma_residu : float64
-        Norma del residu de l'última aproximació trobada de la solució del
-        sistema.
-    nit: int64
-        Nombre d'iteracions necessàries per assolir la precisió demanada en
-        l'aproximació de la solució del sistema. Si no hi ha convergència en el nombre màxim d'iteracions, nit = -1.
-
-    Nota: per resoldre el sistema triangular inferior, heu de fer servir la
-    funció sol_sti que ja teniu programada.
-    """
-    # Escriviu aquí el vostre codi
-    return x, norma_residu, nit
-
-
-# Mètode del gradient
-def gradient(A, b, x, ε, nitm):
-    """
-    Càlcul de la solució del sistema Ax = b. A matriu n x n no singular, b
-    vector amb n components (matriu n x 1), pel mètode del gradient.
-
-    Input
-    A : Array n x n float64
-        Matriu del sistema A x = b, A és una matriu n x n.
-    b : Array n x 1 float64
-        Terme independent del sistema A x = b. b és un vector amb n components (matriu n x 1)
-    x : Array n x 1 float64
-        Aproximació inicial de la solució. És un vector amb n components (matriu n x 1). Llevat no es conegui alguna informació sobre la solució podem agafar x = 0.
-    epsilon : float64
-        Error relatiu (precisió) demanada. Les iteracions del mètode s'aturen
-        quan ||r|| = ||b - Ax|| <= eps * ||b||, i es torna l'ultima aproximació
-        calculada de la solució.
-    nitm : int64
-        Nombre màxim d'iteracions permeses.
-
-    Output
-    x : Array n x 1 float 64
-        Última aproximació trobada de la solució del sistema.
-    norma_residu : float64
-        Norma del residu de l'última aproximació trobada de la solució del
-        sistema.
-    nit: int64
-        Nombre d'iteracions necessàries per assolir la precisió demanada en
-        l'aproximació de la solució del sistema. Si no hi ha convergència en el nombre màxim d'iteracions, nit = -1.
-    """
-    # Escriviu aquí el vostre codi
-    return x, norma_residu, nit
-
-
-# Mètode del gradient conjugat
-def gradient_conjugat(A, b, x, ε, nitm):
-    """
-    Càlcul de la solució del sistema Ax = b. A matriu n x n no singular, b
-    vector amb n components (matriu n x 1), pel mètode del gradient conjugat.
-
-    Input
-    A : Array n x n float64
-        Matriu del sistema A x = b, A és una matriu n x n.
-    b : Array n x 1 float64
-        Terme independent del sistema A x = b. b és un vector amb n components (matriu n x 1)
-    x : Array n x 1 float64
-        Aproximació inicial de la solució. És un vector amb n components (matriu n x 1). Llevat no es conegui alguna informació sobre la solució podem agafar x = 0.
-    epsilon: float64
-        Error relatiu (precisió) demanada. Les iteracions del mètode s'aturen
-        quan ||r|| = ||b - Ax|| <= eps * ||b||, i es torna l'ultima aproximació
-        calculada de la solució.
-
-    Output
-    x : Array n x 1 float 64
-        Última aproximació trobada de la solució del sistema.
-    norma_residu : float64
-        Norma del residu de l'última aproximació trobada de la solució del
-        sistema.
-    nit: int64
-        Nombre d'iteracions necessàries per assolir la precisió demanada en
-        l'aproximació de la solució del sistema.
-    """
-    # Escriviu aquí el vostre codi
-    return x, norma_residu, nit
