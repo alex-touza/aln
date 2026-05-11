@@ -47,7 +47,6 @@ class EstatMetodeIteratiu:
         # ser útil per a tots els mètodes, així que les desem igualment.
         self.iterats: np.ndarray = np.zeros((self.n, 0))
 
-
     def afegir_aproximacio(self, x: np.ndarray):
         """
         Concatena l'aproximació x a la matriu self.iterats com a nova columna per la dreta.
@@ -62,6 +61,7 @@ class EstatMetodeIteratiu:
 
     def convergeix(self):
         return self.k != -1
+
 
 class EstatMetodeIteratiuDescomposicio(EstatMetodeIteratiu):
     def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, M: np.ndarray, M_inv: np.ndarray):
@@ -81,15 +81,16 @@ class EstatMetodeIteratiuGradient(EstatMetodeIteratiu):
         self.alpha: float = 0
 
 
-
 class EstatMetodeIteratiuGradientConjugat(EstatMetodeIteratiuGradient):
     def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, ):
         super().__init__(A, b, x)
         self.p: np.ndarray = self.r
         self.beta: float = 0
 
+
 # Tipus de l'estat, on es desa la informació sobre el procés d'aproximació actual.
 T = TypeVar('T', bound=EstatMetodeIteratiu)
+
 
 class MetodeIteratiu(Generic[T], ABC):
     # Al constructor dels mètodes iteratius, s'especifiquen els
@@ -124,8 +125,8 @@ class MetodeIteratiu(Generic[T], ABC):
         """
         assert self.estat is not None
         # El residu inicial ja està calculat a la inicialització de l'estat
-        norm_b = np.linalg.norm(self.estat.b)
-        while self.estat.residu() > self.tol * norm_b and self.estat.k > self.nitm:
+        precisio_obj = self.tol * np.linalg.norm(self.estat.b)
+        while self.estat.residu() > precisio_obj and self.estat.k <= self.nitm:
             self.estat.k += 1
             y = self.aproximar()
             self.estat.x += y
@@ -214,6 +215,7 @@ class SobreRelaxacioSuccessiva(MetodeIteratiuDescomposicio):
         sol_sti(self.estat.M, y)
         return y
 
+
 class GaussSeidel(SobreRelaxacioSuccessiva):
     def __init__(self, tol: float, nitm: int):
         super().__init__(tol, nitm, 1)
@@ -237,6 +239,7 @@ class GradientConjugat(MetodeIteratiu[EstatMetodeIteratiuGradientConjugat]):
     """
     La implementació és només vàlida per a matrius simètriques i definides positives.
     """
+
     @override
     def aproximar(self):
         assert self.estat is not None
