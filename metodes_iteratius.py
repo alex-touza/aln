@@ -39,8 +39,23 @@ class EstatMetodeIteratiu:
         self.n = A.shape[0]
         self.b = b
         self.x = x
-        self.r = b - A @ x
+        self.r: np.ndarray = b - A @ x
+        # Nombre d'iterats
         self.k = 0
+        # Si bé la matriu d'aproximacions (iterats) només és necessari en els
+        # mètodes del gradient i del gradient conjugat en la pràctica 2, pot
+        # ser útil per a tots els mètodes, així que les desem igualment.
+        self.iterats: np.ndarray = np.zeros((self.n, 0))
+
+
+    def afegir_aproximacio(self, x: np.ndarray):
+        """
+        Concatena l'aproximació x a la matriu self.iterats com a nova columna per la dreta.
+        :param: x Aproximació representada en una matriu columna n x 1.
+        """
+        self.iterats = np.hstack((
+            self.iterats, x
+        ))
 
     def residu(self):
         return np.linalg.norm(self.r)
@@ -61,6 +76,7 @@ class EstatMetodeIteratiuGradient(EstatMetodeIteratiu):
     def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, ):
         super().__init__(A, b, x)
         self.alpha: float = 0
+
 
 
 class EstatMetodeIteratiuGradientConjugat(EstatMetodeIteratiuGradient):
@@ -92,7 +108,7 @@ class MetodeIteratiu(Generic[T], ABC):
 
     def calcular_residu(self, y: np.ndarray):
         """
-        Calcula el nou residu a partir del desplaçament de la solució y.
+        Calcula el nou residu a partir del desplaçament de la solució, y.
         :return:
         """
         assert self.estat is not None
@@ -113,6 +129,7 @@ class MetodeIteratiu(Generic[T], ABC):
 
             y = self.aproximar()
             self.estat.x += y
+            self.estat.afegir_aproximacio(self.estat.x)
             self.calcular_residu(y)
 
     @abstractmethod
