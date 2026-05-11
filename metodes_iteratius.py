@@ -124,16 +124,16 @@ class MetodeIteratiu(Generic[T], ABC):
         """
         assert self.estat is not None
         # El residu inicial ja està calculat a la inicialització de l'estat
-        while self.estat.residu() > self.tol * np.linalg.norm(self.estat.b):
+        norm_b = np.linalg.norm(self.estat.b)
+        while self.estat.residu() > self.tol * norm_b and self.estat.k > self.nitm:
             self.estat.k += 1
-            if self.estat.k > self.nitm:
-                self.estat.k = -1
-                break
-
             y = self.aproximar()
             self.estat.x += y
             self.estat.afegir_aproximacio(self.estat.x)
             self.calcular_residu(y)
+
+        if self.estat.k > self.nitm:
+            self.estat.k = -1
 
     @abstractmethod
     def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray) -> None:
