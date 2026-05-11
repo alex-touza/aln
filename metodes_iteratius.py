@@ -93,6 +93,11 @@ T = TypeVar('T', bound=EstatMetodeIteratiu)
 
 
 class MetodeIteratiu(Generic[T], ABC):
+    """
+    Si x és l'aproximació actual, la funció `aproximar` ha de calcular
+    la solució y del sistema M y = r de manera que l'aproximació següent
+    sigui x + y.
+    """
     # Al constructor dels mètodes iteratius, s'especifiquen els
     # paràmetres de la resolució.
     def __init__(self, tol: float, nitm: int):
@@ -151,11 +156,7 @@ class MetodeIteratiu(Generic[T], ABC):
 
 class MetodeIteratiuDescomposicio(MetodeIteratiu[EstatMetodeIteratiuDescomposicio], ABC):
     """
-    Mètodes iteratius basats en descomposicions regulars de la matriu A.
-
-    Si x és l'aproximació actual, la funció `aproximar` ha de calcular
-    la solució y del sistema M y = r de manera que l'aproximació següent
-    sigui x + y.
+    Mètodes iteratius basats en descomposicions regulars de la matriu A
     """
 
     def __init__(self, tol, nitm):
