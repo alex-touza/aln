@@ -123,13 +123,30 @@ class MetodeIteratiu(Generic[T], ABC):
         assert self.estat is not None
         self.estat.r -= self.estat.A @ y
 
-    def executar(self):
+    @abstractmethod
+    def inicialitzar_estat(self, A: np.ndarray, b: np.ndarray, x: np.ndarray) -> T:
         """
-        Executa el mètode iteratiu suposant que l'estat ja està inicialitzat.
-        :return:
+        Retorna un objecte de tipus T, que és derivat de EstatMetodeIteratiu, que representa l'estat inicial
+        per a l'execució del mètode iteratiu.
+
+        :param A: Matriu de coeficients
+        :param b: Vector de termes independents
+        :param x: Aproximació inicial
+        :return: Retorna un objecte que representa l'estat inicial.
         """
+        pass
+
+    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray) -> None:
+        """
+        Resoldre el sistema Ax = b amb el mètode iteratiu corresponent.
+        Aquesta funció inicialitza l'estat del mètode iteratiu i crida self.executar().
+        Els resultats estaran en self.estat.
+        :param A: Matriu del sistema
+        :param b: Terme independent del sistema
+        :param x: Aproximació inicial de la solució
+        """
+        self.estat = self.inicialitzar_estat(A, b, x)
         assert self.estat is not None
-        # El residu inicial ja està calculat a la inicialització de l'estat
         precisio_obj = self.tol * np.linalg.norm(self.estat.b)
         while self.estat.residu() > precisio_obj and self.estat.k <= self.nitm:
             self.estat.k += 1
@@ -140,18 +157,6 @@ class MetodeIteratiu(Generic[T], ABC):
 
         if self.estat.k > self.nitm:
             self.estat.k = -1
-
-    @abstractmethod
-    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray) -> None:
-        """
-        Resoldre el sistema Ax = b amb el mètode iteratiu corresponent.
-        Aquesta funció inicialitza l'estat del mètode iteratiu i crida self.executar().
-        Els resultats estaran en self.estat.
-        :param A: Matriu del sistema
-        :param b: Terme independent del sistema
-        :param x: Aproximació inicial de la solució
-        """
-        pass
 
 
 class MetodeIteratiuDescomposicio(MetodeIteratiu[EstatMetodeIteratiuDescomposicio], ABC):
@@ -177,9 +182,8 @@ class MetodeIteratiuDescomposicio(MetodeIteratiu[EstatMetodeIteratiuDescomposici
         return self.estat.matriu_iteracio()
 
     @final
-    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
-        self.estat = EstatMetodeIteratiuDescomposicio(A, b, x, *self.descompondre(A))
-        self.executar()
+    def inicialitzar_estat(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
+        return EstatMetodeIteratiuDescomposicio(A, b, x, *self.descompondre(A))
 
 
 class Jacobi(MetodeIteratiuDescomposicio):
@@ -224,9 +228,8 @@ class GaussSeidel(SobreRelaxacioSuccessiva):
 
 class Gradient(MetodeIteratiu[EstatMetodeIteratiuGradient]):
     @final
-    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
-        self.estat = EstatMetodeIteratiuGradient(A, b, x)
-        self.executar()
+    def inicialitzar_estat(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
+        return EstatMetodeIteratiuGradient(A, b, x)
 
     @override
     def aproximar(self):
@@ -257,7 +260,6 @@ class GradientConjugat(MetodeIteratiu[EstatMetodeIteratiuGradientConjugat]):
         return self.estat.alpha * self.estat.p
 
     @final
-    def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
-        self.estat = EstatMetodeIteratiuGradientConjugat(A, b, x)
+    def inicialitzar_estat(self, A: np.ndarray, b: np.ndarray, x: np.ndarray):
         # Ara, alpha = beta = 0 i p = r.
-        self.executar()
+        return EstatMetodeIteratiuGradientConjugat(A, b, x)
