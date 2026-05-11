@@ -60,6 +60,9 @@ class EstatMetodeIteratiu:
     def residu(self):
         return np.linalg.norm(self.r)
 
+    def convergeix(self):
+        return self.k != -1
+
 class EstatMetodeIteratiuDescomposicio(EstatMetodeIteratiu):
     def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, M: np.ndarray, M_inv: np.ndarray):
         super().__init__(A, b, x)
