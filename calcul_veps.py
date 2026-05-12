@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Generic, TypeVar
+from typing import Optional, Generic, TypeVar, override
 
 import numpy as np
 
@@ -36,37 +36,59 @@ class EstatMetodePotencia:
 
 TEstat = TypeVar('TEstat', bound=EstatMetodePotencia)
 
-class MetodePotencia(Generic[TEstat]):
+
+class MetodePotencia:
     def __init__(self, epsilon: float):
         self.epsilon = epsilon
-        self.estat: Optional[TEstat] = None
+        self.estat: Optional[EstatMetodePotencia] = None
 
-    def calcular(self, A: np.ndarray, z0: np.ndarray) -> TEstat:
+    def inicialitzar_estat(self, A: np.ndarray, z0: np.ndarray) -> EstatMetodePotencia:
+        return EstatMetodePotencia(A, z0)
+    
+    def aproximar(self) -> np.ndarray:
+        """
+        A partir de l'estat actual del mètode self.estat, retorna una tupla
+        amb la nova aproximació de vector propi y.
+        """
+        assert self.estat is not None
+        return self.estat.A @ self.estat.z
+
+    def calcular(self, A: np.ndarray, z0: np.ndarray):
         assert np.linalg.norm(z0, ord=np.inf) == 1
-        self.estat = EstatMetodePotencia(A, z0)
+        self.estat = self.inicialitzar_estat(A, z0)
 
         assert self.estat is not None
         # Python no té un do-while...
         seguir = True
         while seguir:
-            self.estat.y = self.estat.A @ self.estat.z
+            self.estat.y = self.aproximar()
             self.estat.z = self.estat.y / np.linalg.norm(self.estat.y)
 
             seguir = self.estat.residu() > self.epsilon
 
         return self.estat.resultat()
+    
+
+class MetodePotenciaInversa(MetodePotencia):
+    @override
+    def inicialitzar_estat(self, A: np.ndarray, z0: np.ndarray) -> np.ndarray:
+        # Resoldre Ay = z amb LU i retornar y 
 
 metode = MetodePotencia(1e-8)
 metode.calcular(np.array([
-    [1, 0, -1],
-    [1, 2, 1],
-    [2, 2, 3],
+    [1, 1, 1, 1],
+    [1, 2, 1, 1],
+    [1, 1, 3, 1],
+    [1, 1, 1, 4],
 ]), np.array(np.array([
+    [1],
     [1],
     [1],
     [1]
 ]
 )))
+
+
 
 assert metode.estat is not None
 
