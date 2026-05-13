@@ -1,40 +1,65 @@
 @startuml
 'https://plantuml.com/class-diagram
 
+hide empty members
+
 namespace metodes_directes {
     abstract class Factoritzacio
     abstract class MetodeDirecte extends Factoritzacio
     abstract class FactoritzacioLU extends MetodeDirecte
     abstract class FactoritzacioLUCompacta extends FactoritzacioLU
-    class FactoritzacioLUGaussiana extends FactoritzacioLU
+    class FactoritzacioLUGaussiana implements FactoritzacioLU
 
     class FactoritzacioLUParcial extends FactoritzacioLUGaussiana
     class FactoritzacioLUParcialEsglaonat extends FactoritzacioLUGaussiana
 
-    class Doolittle extends FactoritzacioLUCompacta
-    class Crout extends FactoritzacioLUCompacta
+    class Doolittle implements FactoritzacioLUCompacta
+    class Crout implements FactoritzacioLUCompacta
 
-    class FactoritzacioLDLT extends MetodeDirecte
-    class Cholesky extends MetodeDirecte
+    class FactoritzacioLDLT implements MetodeDirecte
+    class Cholesky implements MetodeDirecte
 
     abstract class FactoritzacioQR extends Factoritzacio
-    class Householder extends FactoritzacioQR
-    class GramSchmidtClassic extends FactoritzacioQR
-    class GramSchmidtModificat extends FactoritzacioQR
+    class Householder implements FactoritzacioQR
+    class GramSchmidtClassic implements FactoritzacioQR
+    class GramSchmidtModificat implements FactoritzacioQR
 }
 
 namespace metodes_iteratius {
     abstract class MetodeIteratiu<T extends EstatMetodeIteratiu>
     abstract class MetodeIteratiuDescomposicio extends MetodeIteratiu
-    class Jacobi extends MetodeIteratiuDescomposicio
-    class SobreRelaxacioSuccessiva extends MetodeIteratiuDescomposicio
+    class Jacobi implements MetodeIteratiuDescomposicio
+    class SobreRelaxacioSuccessiva implements MetodeIteratiuDescomposicio
     class GaussSeidel extends SobreRelaxacioSuccessiva
 
-    class Gradient extends MetodeIteratiu
+    class Gradient implements MetodeIteratiu
+    class GradientConjugat implements MetodeIteratiu
 
     class EstatMetodeIteratiu
     class EstatMetodeIteratiuDescomposicio extends EstatMetodeIteratiu
     class EstatMetodeIteratiuGradient extends EstatMetodeIteratiu
     class EstatMetodeIteratiuGradientConjugat extends EstatMetodeIteratiuGradient
+}
+
+namespace calcul_veps {
+    together {
+        dataclass ResultatMetodePotencia
+        dataclass ResultatMetodePotenciaInversa
+        dataclass ResultatMetodePotenciaInversaDesplacada
+    }
+    class EstatMetodePotencia
+
+    class EstatMetodePotenciaInversa extends EstatMetodePotencia
+
+    abstract class MetodePotenciaBase<TEstat extends EstatMetodePotencia, TResultat>
+
+    class MetodePotencia implements MetodePotenciaBase
+
+    class MetodePotenciaInversa implements MetodePotenciaBase
+
+    class MetodePotenciaDesplacada extends MetodePotencia
+
+    class MetodePotenciaInversaDesplacada extends MetodePotenciaInversa
+
 }
 @enduml
