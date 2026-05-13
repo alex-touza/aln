@@ -45,16 +45,23 @@ class EstatMetodeIteratiu:
         # Si bé la matriu d'aproximacions (iterats) només és necessari en els
         # mètodes del gradient i del gradient conjugat en la pràctica 2, pot
         # ser útil per a tots els mètodes, així que les desem igualment.
-        self.iterats: np.ndarray = np.zeros((self.n, 0))
+        # Ho desem
+        self.iterats_llista: list = []
 
     def afegir_aproximacio(self, x: np.ndarray):
         """
-        Concatena l'aproximació x a la matriu self.iterats com a nova columna per la dreta.
+        Concatena l'aproximació x a la llista d'iterats com a nova columna per la dreta.
         :param: x Aproximació representada en una matriu columna n x 1.
         """
-        self.iterats = np.hstack((
-            self.iterats, x
-        ))
+        self.iterats_llista.append(x.copy())
+
+    @property
+    def iterats(self):
+        """
+        Retorna la llista d'iterats com a una matriu de columnes.
+        :return:
+        """
+        return np.hstack(self.iterats_llista)
 
     def residu(self):
         return np.linalg.norm(self.r)
@@ -85,6 +92,7 @@ class EstatMetodeIteratiuGradientConjugat(EstatMetodeIteratiuGradient):
     def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, ):
         super().__init__(A, b, x)
         self.p: np.ndarray = self.r
+        self.q: np.ndarray = np.zeros((self.n,1))
         self.beta: float = 0
 
 
@@ -118,7 +126,8 @@ class MetodeIteratiu(Generic[T], ABC):
     def calcular_residu(self, y: np.ndarray):
         """
         Calcula el nou residu a partir del desplaçament de la solució, y.
-        :return:
+
+        No retorna res; modifica el valor de self.estat.r.
         """
         assert self.estat is not None
         self.estat.r -= self.estat.A @ y
@@ -139,7 +148,6 @@ class MetodeIteratiu(Generic[T], ABC):
     def resoldre(self, A: np.ndarray, b: np.ndarray, x: np.ndarray) -> None:
         """
         Resoldre el sistema Ax = b amb el mètode iteratiu corresponent.
-        Aquesta funció inicialitza l'estat del mètode iteratiu i crida self.executar().
         Els resultats estaran en self.estat.
         :param A: Matriu del sistema
         :param b: Terme independent del sistema
@@ -245,18 +253,29 @@ class GradientConjugat(MetodeIteratiu[EstatMetodeIteratiuGradientConjugat]):
     """
 
     @override
+    def calcular_residu(self, y: np.ndarray):
+        assert self.estat is not None
+        # r_{k+1} = r_k - A * y, on y = alpha * p. Per tant, r_{k+1} = r_k - alpha * q_{k+1}
+        self.estat.r -= self.estat.alpha * self.estat.q
+
+    @override
     def aproximar(self):
         assert self.estat is not None
+
+
         if self.estat.k != 1:
-            self.estat.beta = - (np.vdot(self.estat.r, self.estat.A @ self.estat.p) /
-                                 np.vdot(self.estat.p, self.estat.A @ self.estat.p))
+            self.estat.beta = - (np.vdot(self.estat.r, self.estat.q) /
+                                 np.vdot(self.estat.p, self.estat.q))
         # Si k = 1, beta = 0 com ja s'ha inicialitzat.
 
         # Direccions d'avançament
         self.estat.p = self.estat.r + self.estat.beta * self.estat.p
+        # Calculem aquí A * p, i així només calculem el producte de matrius una vegada.
+        # Ho fem servir també a calcular_residu, així que ho desem en l'estat.
+        self.estat.q = self.estat.A @ self.estat.p
 
         self.estat.alpha = (np.vdot(self.estat.p, self.estat.r) /
-                            np.vdot(self.estat.p, self.estat.A @ self.estat.p))
+                            np.vdot(self.estat.p, self.estat.q))
         return self.estat.alpha * self.estat.p
 
     @final
