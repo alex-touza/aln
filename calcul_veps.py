@@ -79,6 +79,7 @@ class EstatMetodePotenciaInversa(EstatMetodePotencia):
         super().__init__(A, z0)
         self.factoritzacio = FactoritzacioLUParcialEsglaonat(A)
         self.factoritzacio.factoritzar()
+        self.factoritzacio.partir()
 
     def resoldre(self) -> np.ndarray:
         """
