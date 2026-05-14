@@ -97,6 +97,9 @@ TEstat = TypeVar("TEstat", bound=EstatMetodePotencia)
 
 
 class MetodePotenciaBase(Generic[TEstat, TResultat], ABC):
+    """
+    Classe base abstracta per als mètodes de la potència i les seves variants.
+    """
     def __init__(self, epsilon: float):
         self.epsilon = epsilon
         self.estat: Optional[TEstat] = None
@@ -131,7 +134,15 @@ class MetodePotenciaBase(Generic[TEstat, TResultat], ABC):
         """
         pass
 
-    def calcular(self, A: np.ndarray, z0: np.ndarray):
+    def calcular(self, A: np.ndarray, z0: np.ndarray) -> None:
+        """
+        Executa el mètode de la potència o alguna de les seves variants. No retorna res,
+        però actualitza el valor de self.estat i, per tant, el resultat es pot obtenir a través
+        de self.resultat() després d'executar aquest mètode.
+
+        La matriu A i el vector z0 es poden modificar dins del mètode, així que es recomana passar
+        còpies d'aquests si es volen mantenir els originals sense canvis.
+        """
         assert np.linalg.norm(z0, ord=np.inf) == 1
         self.estat = self.inicialitzar_estat(A, z0)
 
@@ -211,9 +222,9 @@ class MetodePotenciaInversaDesplacada(MetodePotenciaInversa):
     @override
     def resultat(self) -> ResultatMetodePotenciaInversa:
         """
-        Aquí el tipus retornat és diferent que en MetodePotenciaInversa. Això trenca el principi de
-        substitució de Liskov, però com a la pràctica només farem servir aquestes classes directament
-        i no a través de classes parents, ho passarem per alt.
+        Aquí el tipus retornat és diferent que el de la funció original en MetodePotenciaInversa.
+        Això trenca el principi de substitució de Liskov, però com a la pràctica només farem servir
+        aquestes classes directament i no a través de classes parents, ho ignorarem.
 
         :return: Un objecte de tipus ResultatMetodePotenciaInversaDesplacada que indica el valor propi
         més proper al paràmetre q i el vector propi associat a aquest valor propi.
