@@ -1,28 +1,6 @@
 """
 Mètodes iteratius
 -----------------
-
-radi_espectral(A): Càlcul del radi espectral de la matriu A.
-
-jacobi(A, b, x, eps, nitm): Solució d'un sistema lineal A x = b, A matriu n x n
-no singular, b vector amb n components (matriu n x 1),  pel mètode iteratiu de
-Jacobi.
-
-gauss_seidel(A, b, x, eps, nitm): Càlcul de la solució del sistema Ax = b. A
-matriu n x n no singular, b vector amb n components (matriu n x 1), pel mètode
-iteratiu de Gauss-Seidel
-
-def sor(A, b, x, w, eps, nitm): Càlcul de la solució del sistema Ax = b. A
-matriu n x n no singular, b vector amb n components (matriu n x 1), pel mètode
-iteratiu de Sobre-Relaxació Successiva (SOR: Successive Over-Relaxation).
-
-gradient(A, b, x, ε, nitm): Càlcul de la solució del sistema Ax = b. A matriu n
-x n no singular, b vector amb n components (matriu n x 1), pel mètode del
-gradient.
-
-gradient_conjugat(A, b, x, ε, nitm): Càlcul de la solució del sistema Ax = b. A
-matriu n x n no singular, b vector amb n components (matriu n x 1), pel mètode
-del gradient conjugat.
 """
 
 import numpy
@@ -59,7 +37,6 @@ class EstatMetodeIteratiu:
     def iterats(self):
         """
         Retorna la llista d'iterats com a una matriu de columnes.
-        :return:
         """
         return np.hstack(self.iterats_llista)
 
