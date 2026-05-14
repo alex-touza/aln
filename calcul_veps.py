@@ -220,7 +220,7 @@ class MetodePotenciaInversaDesplacada(MetodePotenciaInversa):
         return EstatMetodePotenciaInversa(A - self.q * np.eye(A.shape[0]), z0)
 
     @override
-    def resultat(self) -> ResultatMetodePotenciaInversa:
+    def resultat(self) -> ResultatMetodePotenciaInversaDesplacada: # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Aquí el tipus retornat és diferent que el de la funció original en MetodePotenciaInversa.
         Això trenca el principi de substitució de Liskov, però com a la pràctica només farem servir
