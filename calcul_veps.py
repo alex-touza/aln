@@ -182,7 +182,7 @@ class MetodePotenciaInversa(MetodePotenciaBase[EstatMetodePotenciaInversa, Resul
     @override
     def resultat(self) -> ResultatMetodePotenciaInversa:
         assert self.estat is not None
-        return ResultatMetodePotenciaInversa(self.estat.y, 1 / np.linalg.norm(self.estat.y))
+        return ResultatMetodePotenciaInversa(self.estat.z, 1 / np.linalg.norm(self.estat.y))
 
     @override
     def aproximar(self) -> np.ndarray:
