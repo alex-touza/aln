@@ -208,8 +208,10 @@ class FactoritzacioLUGaussiana(FactoritzacioLU):
 
     @override
     def residu_solucio(self) -> np.floating:
+        b = self.b_original if self.pivotatge else self.b
+        assert b is not None
         assert self.x is not None
-        return np.linalg.norm((self.b_original if self.pivotatge else self.b) - self.A_original @ self.x)
+        return np.linalg.norm(b - self.A_original @ self.x)
     
     @override
     def residu_factoritzacio(self) -> np.floating:
