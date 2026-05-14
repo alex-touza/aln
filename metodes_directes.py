@@ -323,8 +323,6 @@ class FactoritzacioLDLT(MetodeDirecte):
         assert self.x is not None
         sol_sts(self.L.T, self.x)
 
-        return self.x
-
 class FactoritzacioCholesky(MetodeDirecte):
     """
     Calcula la factorització A = L L^T, on L és una matriu triangular inferior.
