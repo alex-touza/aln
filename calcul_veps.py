@@ -164,7 +164,7 @@ class MetodePotencia(MetodePotenciaBase[EstatMetodePotencia, ResultatMetodePoten
         return EstatMetodePotencia(A, z0)
 
     @override
-    def resultat(self) -> TResultat:
+    def resultat(self) -> ResultatMetodePotencia:
         assert self.estat is not None
         return ResultatMetodePotencia(self.estat.y, np.linalg.norm(self.estat.y))
 
