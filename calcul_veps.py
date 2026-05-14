@@ -230,7 +230,7 @@ class MetodePotenciaInversaDesplacada(MetodePotenciaInversa):
         més proper al paràmetre q i el vector propi associat a aquest valor propi.
         """
         resultat_ = super().resultat()
-        return ResultatMetodePotenciaInversa(resultat_.vep_associat, 1 / (resultat_.vap_minim + self.q))
+        return ResultatMetodePotenciaInversaDesplacada(resultat_.vep_associat, 1 / (resultat_.vap_minim + self.q))
 
 
 
