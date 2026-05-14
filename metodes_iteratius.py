@@ -85,7 +85,7 @@ class EstatMetodeIteratiuDescomposicio(EstatMetodeIteratiu):
 class EstatMetodeIteratiuGradient(EstatMetodeIteratiu):
     def __init__(self, A: np.ndarray, b: np.ndarray, x: np.ndarray, ):
         super().__init__(A, b, x)
-        self.alpha: float = 0
+        self.alpha: np.floating = np.float64(0)
 
 
 class EstatMetodeIteratiuGradientConjugat(EstatMetodeIteratiuGradient):
@@ -93,7 +93,7 @@ class EstatMetodeIteratiuGradientConjugat(EstatMetodeIteratiuGradient):
         super().__init__(A, b, x)
         self.p: np.ndarray = self.r
         self.q: np.ndarray = np.zeros((self.n,1))
-        self.beta: float = 0
+        self.beta: np.floating = np.float64(0)
 
 
 # Tipus de l'estat, on es desa la informació sobre el procés d'aproximació actual.
