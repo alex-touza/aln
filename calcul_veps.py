@@ -155,7 +155,6 @@ class MetodePotenciaBase(Generic[TEstat, TResultat], ABC):
 
             seguir = self.estat.residu() > self.epsilon
 
-        return self.resultat()
 
 
 class MetodePotencia(MetodePotenciaBase[EstatMetodePotencia, ResultatMetodePotencia]):
@@ -235,22 +234,33 @@ class MetodePotenciaInversaDesplacada(MetodePotenciaInversa):
 
 
 
-metode = MetodePotencia(1e-8)
-resultat = metode.calcular(np.array([
+A = np.array([
     [1, 1, 1, 1],
     [1, 2, 1, 1],
     [1, 1, 3, 1],
     [1, 1, 1, 4],
-]), np.array(np.array([
+])
+
+metode = MetodePotencia(1e-8)
+metode.calcular(A.copy(), np.array([
     [1],
     [1],
     [1],
     [1]
-]
-)))
-print(resultat.vap, resultat.vep_associat)
+], dtype=np.float64))
 
-assert metode.estat is not None
+resultat = metode.resultat()
+print(resultat.vap_dominant, resultat.vep_associat)
+print(A @ resultat.vep_associat / resultat.vap_dominant)
 
-print("VAP de mòdul més gran: ", np.linalg.norm(metode.estat.y))
-print("VEP associat: ", metode.estat.y)
+metode = MetodePotenciaInversa(1e-8)
+metode.calcular(A.copy(), np.array([
+    [1],
+    [0],
+    [0],
+    [0],
+], dtype=np.float64))
+resultat = metode.resultat()
+print(resultat.vap_minim, resultat.vep_associat)
+
+print((A @ resultat.vep_associat) / resultat.vap_minim)
