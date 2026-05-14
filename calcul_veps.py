@@ -43,10 +43,6 @@ class ResultatMetodePotenciaInversaDesplacada:
     """
 
 
-T = TypeVar("T")
-"""
-Dataclass que retorna
-"""
 
 
 class EstatMetodePotencia:
